@@ -177,7 +177,7 @@
                 </div>
                 
                 <div style="margin-top:15px; display:flex; gap:10px;">
-                    <button class="btn btn-danger hidden" id="cancelBookingBtn" onclick="cancelCurrentBooking()">Скасувати бронювання</button>
+                    <button class="btn btn-danger hidden" id="cancelBookingBtn" onclick="cancelCurrentBooking()">Скасувати вибір на цей день</button>
                 </div>
             </div>
         </div>
@@ -459,22 +459,28 @@
                 document.getElementById('cancelBookingBtn').classList.add('hidden');
             }
 
-            handleFormatChange();
+            // Завжди показуємо карту при змінах, щоб бачити актуальний розподіл столів
+            const format = document.getElementById('workFormatSelect').value;
+            const mapSection = document.getElementById('officeMapSection');
+            if (format !== 'none') {
+                mapSection.classList.remove('hidden');
+                renderOfficeMap();
+            } else {
+                mapSection.classList.add('hidden');
+            }
         }
 
         function handleFormatChange() {
             const format = document.getElementById('workFormatSelect').value;
-            const mapSection = document.getElementById('officeMapSection');
             
             if (format === 'office') {
-                mapSection.classList.remove('hidden');
-                renderOfficeMap();
+                // Якщо користувач переключився з віддалено на офіс, просто відкриваємо карту для вибору столу
+                refreshDayView();
             } else if (format === 'remote') {
-                mapSection.classList.remove('hidden'); 
-                renderOfficeMap(); 
+                // Користувач перемкнувся на віддалено — зберігаємо віддалений режим (старий стіл автоматично звільниться)
                 saveBooking('remote', null);
             } else {
-                mapSection.classList.add('hidden');
+                document.getElementById('officeMapSection').classList.add('hidden');
             }
         }
 
@@ -500,14 +506,8 @@
             });
             remoteUsersList.innerText = remoteUsers.length > 0 ? remoteUsers.join(', ') : 'немає';
 
-            const currentFormat = document.getElementById('workFormatSelect').value;
-            if (currentFormat === 'remote') {
-                // Якщо обрано "віддалено" — приховуємо тільки схему столів, інфо-бокс залишається
-                tablesMapWrapper.style.display = 'none';
-                return;
-            } else {
-                tablesMapWrapper.style.display = 'block';
-            }
+            // Схема столів тепер ЗАВЖДИ видима, щоб бачити вільні опції
+            tablesMapWrapper.style.display = 'block';
 
             // 1. Статус місць керівників
             MANAGERS.forEach(m => {
@@ -687,6 +687,7 @@
             }
         }
 
+        // --- ЕКСПОРТ АРХІВУ ---
         function exportArchive() {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
             const downloadAnchor = document.createElement('a');
