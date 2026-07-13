@@ -1,593 +1,669 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Голосування — Спортивний менеджмент</title>
-<style>
-:root{
-  --blue:#1a56db;--blue-light:#e8f0fe;--blue-mid:#3b82f6;--blue-dark:#1e3a8a;
-  --bg:#f0f4ff;--white:#fff;--border:#c7d7f7;--text:#1e293b;--muted:#64748b;
-  --green:#16a34a;--green-bg:#dcfce7;--amber:#b45309;--amber-bg:#fef3c7;
-  --red:#dc2626;--red-bg:#fee2e2;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-.container{max-width:660px;margin:0 auto;padding:1.5rem 1rem 3rem}
-.page{display:none}.page.active{display:block}
-.logo{display:flex;align-items:center;gap:10px;margin-bottom:1.5rem}
-.logo-icon{width:40px;height:40px;background:var(--blue);border-radius:10px;display:flex;align-items:center;justify-content:center}
-.logo-icon svg{width:22px;height:22px;fill:white}
-.logo-text h1{font-size:18px;font-weight:700;color:var(--blue-dark)}
-.logo-text p{font-size:12px;color:var(--muted)}
-h2{font-size:20px;font-weight:700;color:var(--blue-dark);margin-bottom:4px}
-.sub{font-size:14px;color:var(--muted);margin-bottom:1.5rem}
-.card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:1.25rem;margin-bottom:.75rem;box-shadow:0 1px 3px rgba(26,86,219,.07)}
-.instr-card{background:var(--blue-light);border:1.5px solid var(--border);border-radius:14px;padding:1.25rem;margin-bottom:1.25rem}
-.instr-card h3{font-size:15px;font-weight:700;color:var(--blue-dark);margin-bottom:.75rem}
-.instr-row{display:flex;gap:10px;margin-bottom:.5rem;align-items:flex-start}
-.instr-num{width:22px;height:22px;border-radius:50%;background:var(--blue);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-.instr-row p{font-size:13px;color:var(--blue-dark);line-height:1.5}
-.progress-bar{height:5px;background:var(--border);border-radius:3px;margin-bottom:.75rem;overflow:hidden}
-.progress-fill{height:100%;background:var(--blue);border-radius:3px;transition:width .3s}
-.group-tag{display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;margin-bottom:6px;font-weight:600}
-.gt-r{background:#dcfce7;color:#166534}.gt-i{background:#dbeafe;color:#1e40af}
-.gt-w{background:#fef3c7;color:#92400e}.gt-t{background:#fce7f3;color:#9d174d}
-.gt-f{background:#ede9fe;color:#5b21b6}.gt-s{background:#d1fae5;color:#065f46}
-.gt-sp{background:#ffedd5;color:#9a3412}.gt-u{background:#f1f5f9;color:#334155}
-.gt-m{background:#fef9c3;color:#713f12}
-.q-num{font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.q-title{font-size:17px;font-weight:700;color:var(--blue-dark);margin-bottom:2px}
-.q-sub{font-size:13px;color:var(--muted);margin-bottom:6px}
-.q-desc{font-size:13px;color:#475569;margin-bottom:14px;line-height:1.5;background:var(--blue-light);padding:8px 12px;border-radius:8px}
-select{width:100%;font-size:15px;color:var(--text);background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:11px 12px;cursor:pointer;appearance:auto}
-select:focus{outline:none;border-color:var(--blue)}
-.btn-row{display:flex;gap:8px;margin-top:1.25rem;justify-content:space-between;align-items:center}
-.btn-right{display:flex;gap:8px}
-button{font-size:14px;padding:11px 22px;border-radius:10px;cursor:pointer;border:1.5px solid var(--border);background:var(--white);color:var(--text);font-weight:600;transition:all .15s}
-button:hover{background:var(--blue-light);border-color:var(--blue-mid)}
-button:active{transform:scale(.98)}
-button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
-button.primary:hover{background:var(--blue-dark);border-color:var(--blue-dark)}
-.voter-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:1.5rem}
-.voter-btn{padding:11px 12px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);font-size:13px;color:var(--text);cursor:pointer;text-align:left;line-height:1.4;font-weight:500;transition:all .15s}
-.voter-btn:hover{background:var(--blue-light);border-color:var(--blue-mid)}
-.voter-btn.voted{border-color:var(--green);background:var(--green-bg);color:#14532d}
-.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.5rem}
-.stat-box{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:.85rem;text-align:center}
-.stat-num{font-size:26px;font-weight:700;color:var(--blue-dark)}
-.stat-lbl{font-size:11px;color:var(--muted);margin-top:2px}
-.tab-row{display:flex;gap:6px;margin-bottom:1.25rem;flex-wrap:wrap}
-.tab{font-size:12px;padding:6px 13px;border-radius:20px;border:1.5px solid var(--border);cursor:pointer;background:var(--white);color:var(--muted);font-weight:600}
-.tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
-.nom-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:.65rem}
-.nom-title{font-size:14px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;color:var(--blue-dark)}
-.winner-badge{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--green-bg);color:var(--green);font-weight:700}
-.result-row{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid #f1f5f9}
-.result-row:last-child{border-bottom:none}
-.result-name{font-size:12px;color:var(--text);min-width:150px;flex-shrink:0}
-.result-bar-wrap{flex:1;height:7px;background:#e2e8f0;border-radius:4px;overflow:hidden}
-.result-bar{height:100%;background:var(--blue);border-radius:4px}
-.result-count{font-size:12px;color:var(--muted);min-width:20px;text-align:right;font-weight:600}
-.status-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:13px}
-.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
-.dot-done{background:var(--green)}.dot-wait{background:#cbd5e1}
-.loader{text-align:center;padding:3rem;color:var(--muted);font-size:15px}
-.error-msg{background:var(--red-bg);border:1px solid #fca5a5;border-radius:10px;padding:.85rem 1rem;font-size:13px;color:var(--red);margin-bottom:1rem}
-.admin-link{font-size:13px;color:var(--blue);cursor:pointer;text-decoration:underline;margin-top:.75rem;display:inline-block;font-weight:600}
-.reset-link{font-size:13px;color:var(--red);cursor:pointer;text-decoration:underline;font-weight:600}
-.nav-dots{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:1rem}
-.nav-dot{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--border);background:var(--white);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-weight:700;transition:all .15s}
-.nav-dot:hover{border-color:var(--blue-mid);color:var(--blue)}
-.nav-dot.current{border:2.5px solid var(--blue);color:var(--blue);background:var(--blue-light)}
-.nav-dot.answered{background:var(--green-bg);border-color:var(--green);color:var(--green)}
-.nav-dot.skipped{background:var(--amber-bg);border-color:#f59e0b;color:var(--amber)}
-.confirm-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13px}
-.confirm-row:last-child{border-bottom:none}
-.confirm-val{font-size:12px;font-weight:600;color:var(--green)}
-.confirm-val.skip{color:var(--muted)}
-.pwd-box{background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:2rem;max-width:340px;margin:3rem auto}
-.pwd-box h2{font-size:18px;font-weight:700;color:var(--blue-dark);margin-bottom:.5rem}
-.pwd-box p{font-size:13px;color:var(--muted);margin-bottom:1.25rem}
-.pwd-box input{width:100%;font-size:16px;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;margin-bottom:.75rem;color:var(--text)}
-.pwd-box input:focus{outline:none;border-color:var(--blue)}
-.pwd-err{font-size:12px;color:var(--red);margin-bottom:.5rem}
-.done-screen{text-align:center;padding:2rem 1rem}
-.done-icon{width:64px;height:64px;background:var(--green-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem}
-.done-icon svg{width:32px;height:32px;stroke:var(--green);fill:none;stroke-width:2.5}
-@media(max-width:480px){
-  .voter-grid{grid-template-columns:repeat(2,1fr)}
-  .stats-grid{grid-template-columns:repeat(3,1fr)}
-  .nav-dot{width:26px;height:26px;font-size:10px}
-  .btn-row{flex-wrap:wrap}
-  .btn-right{flex:1;justify-content:flex-end}
-  h2{font-size:18px}
-  .q-title{font-size:15px}
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PASS Office Booking</title>
+    <style>
+        :root {
+            --blue: #1a56db;
+            --blue-hover: #1e429f;
+            --blue-light: #ebf5ff;
+            --bg: #f0f4ff;
+            --text: #1f2937;
+            --gray-light: #f3f4f6;
+            --gray-border: #e5e7eb;
+            --green: #31c48d;
+            --green-hover: #057a55;
+            --red: #f98080;
+            --red-hover: #e02424;
+            --disabled: #d1d5db;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
+
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--gray-light); padding-bottom: 15px; margin-bottom: 20px; }
+        h1 { color: var(--blue); font-size: 24px; }
+        h2 { font-size: 18px; margin-bottom: 15px; color: var(--blue); }
+
+        .btn { background: var(--blue); color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: 6px; font-size: 14px; transition: background 0.2s; }
+        .btn:hover { background: var(--blue-hover); }
+        .btn-danger { background: var(--red); }
+        .btn-danger:hover { background: var(--red-hover); }
+        .btn-outline { background: transparent; border: 1px solid var(--blue); color: var(--blue); }
+        .btn-outline:hover { background: var(--blue-light); }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        select, input { width: 100%; padding: 10px; border: 1px solid var(--gray-border); border-radius: 6px; font-size: 15px; outline: none; }
+        select:focus, input:focus { border-color: var(--blue); }
+
+        .hidden { display: none !important; }
+        .flex-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--gray-border); padding-bottom: 10px; }
+        .tab { padding: 8px 16px; cursor: pointer; border-radius: 6px; font-weight: 500; font-size: 14px; }
+        .tab.active { background: var(--blue); color: white; }
+
+        /* Логіка розкладу */
+        .week-selector { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: var(--gray-light); padding: 10px; border-radius: 8px; }
+        .days-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+        @media (max-width: 600px) { .days-grid { grid-template-columns: 1fr; } }
+        .day-card { background: white; border: 2px solid var(--gray-border); padding: 12px; border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .day-card.active { border-color: var(--blue); background: var(--blue-light); }
+        .day-card .date-sub { font-size: 12px; color: #6b7280; }
+
+        /* Схема офісу (Схожа на потяг) */
+        .office-map-container { background: var(--gray-light); padding: 20px; border-radius: 8px; margin-top: 15px; }
+        .train-scheme { display: grid; grid-template-columns: 1fr 40px 1fr; gap: 15px; max-width: 400px; margin: 0 auto; background: white; padding: 15px; border-radius: 12px; border: 2px solid var(--blue); position: relative; }
+        .train-scheme::before { content: "ВІКНО"; position: absolute; left: -30px; top: 40%; transform: rotate(-90deg); font-size: 11px; font-weight: bold; color: #9ca3af; letter-spacing: 2px; }
+        .train-scheme::after { content: "КОРИДОР"; position: absolute; right: -40px; top: 40%; transform: rotate(90deg); font-size: 11px; font-weight: bold; color: #9ca3af; letter-spacing: 2px; }
+        .corridor { grid-column: 2; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 4px; font-size: 10px; color: #9ca3af; font-weight: bold; }
+        .side-left { grid-column: 1; display: flex; flex-direction: column; gap: 10px; }
+        .side-right { grid-column: 3; display: flex; flex-direction: column; gap: 10px; }
+        
+        .seat { padding: 12px; border-radius: 6px; text-align: center; font-weight: bold; font-size: 13px; cursor: pointer; border: 1px solid var(--gray-border); transition: all 0.2s; background: var(--green); color: white; display: flex; flex-direction: column; justify-content: center; min-height: 55px; }
+        .seat:hover:not(.taken):not(.disabled) { background: var(--green-hover); }
+        .seat.taken { background: var(--disabled); color: var(--text); cursor: not-allowed; font-weight: normal; }
+        .seat.taken span { font-size: 11px; display: block; color: #555; font-style: italic; }
+        .seat.disabled { background: var(--gray-light); color: #9ca3af; border-style: dashed; cursor: not-allowed; }
+        .seat.my-booking { background: var(--blue) !important; color: white !important; }
+
+        /* Статус плашка */
+        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-top: 5px; }
+        .badge-office { background: #def7ec; color: #03543f; }
+        .badge-remote { background: #edf2f7; color: #4a5568; }
+
+        /* Адмінка */
+        .admin-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        .admin-table th, .admin-table td { border: 1px solid var(--gray-border); padding: 10px; text-align: left; }
+        .admin-table th { background: var(--gray-light); }
+        .sync-indicator { font-size: 12px; color: #6b7280; text-align: right; margin-top: 5px; }
+    </style>
 </head>
 <body>
-<div class="container">
 
-<div id="pg-loader" class="page active">
-  <div class="loader">Завантаження...</div>
-</div>
+    <div class="container">
+        <header>
+            <div>
+                <h1>PASS Office Booking</h1>
+                <div class="sync-indicator" id="syncStatus">Оновлення...</div>
+            </div>
+            <button class="btn btn-outline" id="adminToggleBtn" onclick="toggleAdminPanel()">Адмін Panel</button>
+        </header>
 
-<div id="pg-voter-select" class="page">
-  <div class="logo">
-    <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg></div>
-    <div class="logo-text"><h1>Номінації курсу</h1><p>Спортивний менеджмент</p></div>
-  </div>
-  <div id="error-area"></div>
-  <div class="instr-card">
-    <h3>Як це працює</h3>
-    <div class="instr-row"><div class="instr-num">1</div><p>Оберіть своє ім'я зі списку нижче</p></div>
-    <div class="instr-row"><div class="instr-num">2</div><p>Для кожної номінації оберіть одногрупника, який найкраще відповідає опису. Кожну людину можна обрати лише один раз</p></div>
-    <div class="instr-row"><div class="instr-num">3</div><p>MVP обирається першим — це найважливіша номінація</p></div>
-    <div class="instr-row"><div class="instr-num">4</div><p>Після того, як всі учасники будуть розподілені, голосування надсилається автоматично</p></div>
-    <div class="instr-row"><div class="instr-num">5</div><p>Голосування анонімне — інші студенти не бачать ваших відповідей</p></div>
-  </div>
-  <p style="font-size:14px;font-weight:700;color:var(--blue-dark);margin-bottom:.75rem">Оберіть своє ім'я:</p>
-  <div class="voter-grid" id="voter-grid"></div>
-  <span class="admin-link" onclick="askAdminPassword()">Панель викладача</span>
-</div>
+        <!-- Екран авторизації -->
+        <div id="authScreen">
+            <h2>Вхід у систему</h2>
+            <div class="form-group">
+                <label for="userSelect">Оберіть ваше ім'я:</label>
+                <select id="userSelect">
+                    <option value="">-- Оберіть зі списку --</option>
+                    <optgroup label="Керівники">
+                        <option value="Леопард">Керівник Леопард</option>
+                        <option value="Пантера">Керівник Пантера</option>
+                        <option value="Тигр">Керівник Тигр</option>
+                    </optgroup>
+                    <optgroup label="Співробітники">
+                        <option value="Кіт">Співробітник Кіт</option>
+                        <option value="Пес">Співробітник Пес</option>
+                        <option value="Єнот">Співробітник Єнот</option>
+                        <option value="Лис">Співробітник Лис</option>
+                        <option value="Ведмідь">Співробітник Ведмідь</option>
+                        <option value="Заєць">Співробітник Заєць</option>
+                        <option value="Сова">Співробітник Сова</option>
+                    </optgroup>
+                </select>
+            </div>
+            <button class="btn" style="width:100%" onclick="login()">Увійти</button>
+        </div>
 
-<div id="pg-voting" class="page">
-  <div style="margin-bottom:.75rem;display:flex;align-items:center;justify-content:space-between">
-    <div>
-      <h2 id="voter-name-display"></h2>
-      <p class="sub" id="q-counter-text" style="margin-bottom:0"></p>
+        <!-- Головний екран бронювання -->
+        <div id="mainScreen" class="hidden">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <div>Вітаємо, <strong id="currentUserName">...</strong> (<span id="currentUserRole"></span>)</div>
+                <button class="btn btn-danger" style="padding: 5px 10px; font-size:12px;" onclick="logout()">Вийти</button>
+            </div>
+
+            <!-- Вибір тижня -->
+            <div class="week-selector">
+                <button class="btn btn-outline" style="padding:5px 10px;" id="prevWeekBtn" onclick="changeWeek(-1)">Поточний тиждень</button>
+                <span id="weekLabel" style="font-weight:bold;">...</span>
+                <button class="btn btn-outline" style="padding:5px 10px;" id="nextWeekBtn" onclick="changeWeek(1)">Наступний тиждень</button>
+            </div>
+
+            <!-- Дні тижня -->
+            <div class="days-grid" id="daysGrid"></div>
+
+            <!-- Форма вибору формату роботи -->
+            <div id="dayActionSection" class="hidden">
+                <h3 id="selectedDayTitle" style="margin-bottom:10px; color:var(--blue);">Обраний день</h3>
+                
+                <div class="form-group">
+                    <label>Формат роботи на цей день:</label>
+                    <select id="workFormatSelect" onchange="handleFormatChange()">
+                        <option value="none">-- Оберіть формат --</option>
+                        <option value="office">В офісі 🏢</option>
+                        <option value="remote">Віддалено 🏠</option>
+                    </select>
+                </div>
+
+                <!-- Схема офісу для співробітників або статус керівника -->
+                <div id="officeMapSection" class="hidden office-map-container">
+                    <h4 style="text-align:center; margin-bottom:15px;">Схема робочих місць в офісі</h4>
+                    
+                    <div class="train-scheme">
+                        <div class="side-left" id="leftSeats">
+                            <!-- Місця від вікна -->
+                        </div>
+                        <div class="corridor">ПРОХІД</div>
+                        <div class="side-right" id="rightSeats">
+                            <!-- Місця до коридору -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-top:15px; display:flex; gap:10px;">
+                    <button class="btn btn-danger hidden" id="cancelBookingBtn" onclick="cancelCurrentBooking()">Скасувати бронювання</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Адмін-панель -->
+        <div id="adminScreen" class="hidden" style="margin-top:30px; border-top: 3px solid var(--blue); padding-top:20px;">
+            <h2>Адмін-панель</h2>
+            <div class="flex-tabs">
+                <div class="tab active" id="tab1" onclick="switchAdminTab(1)">Поточні броні (Тиждень)</div>
+                <div class="tab" id="tab2" onclick="switchAdminTab(2)">Архів (Всі дані)</div>
+            </div>
+
+            <div id="adminTabContent1">
+                <div class="form-group" style="max-width:200px;">
+                    <label for="adminDateFilter">Фільтр за датою:</label>
+                    <input type="date" id="adminDateFilter" onchange="renderAdminData()">
+                </div>
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Користувач</th>
+                            <th>Формат</th>
+                            <th>Місце</th>
+                            <th>Дія</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminLiveBookings"></tbody>
+                </table>
+            </div>
+
+            <div id="adminTabContent2" class="hidden">
+                <button class="btn" onclick="exportArchive()">Завантажити весь архів JSON</button>
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Користувач</th>
+                            <th>Тип роботи / Місце</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminArchiveBookings"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
-  </div>
-  <div class="progress-bar"><div class="progress-fill" id="prog-fill"></div></div>
-  <div class="nav-dots" id="nav-dots"></div>
-  <div id="q-area"></div>
-  <div class="btn-row">
-    <button id="btn-prev" onclick="prevQ()">Назад</button>
-    <div class="btn-right">
-      <button class="primary" id="btn-next" onclick="nextQ()">Далі</button>
-    </div>
-  </div>
-</div>
 
-<div id="pg-done" class="page">
-  <div class="done-screen">
-    <div class="done-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
-    <h2 style="margin-bottom:.5rem">Дякуємо!</h2>
-    <p class="sub">Ваші голоси надіслано. Результати будуть оголошені викладачем.</p>
-    <div class="stats-grid" id="done-stats" style="margin-top:1.5rem"></div>
-  </div>
-</div>
+    <script>
+        // --- КОНФІГУРАЦІЯ ---
+        const API_KEY = '$2a$10$sob4JoxEjCWHuzxWpPEZkuH29lhni9FEMn6ThLwGaKcbuheV4duoe';
+        const BIN_ID = '6a54b6f5da38895dfe55ec69'; 
 
-<div id="pg-saving" class="page">
-  <div class="loader">Надсилаємо голоси...</div>
-</div>
+        // Ролі та люди
+        const MANAGERS = ['Леопард', 'Пантера', 'Тигр'];
+        const EMPLOYEES = ['Кіт', 'Пес', 'Єнот', 'Лис', 'Ведмідь', 'Заєць', 'Сова'];
+        
+        // Фіксовані місця керівників
+        const MANAGER_SEATS = {
+            'Леопард': 'Стіл К1 (Вікно)',
+            'Пантера': 'Стіл К2 (Центр)',
+            'Тигр': 'Стіл К3 (Коридор)'
+        };
 
-<div id="pg-pwd" class="page">
-  <div class="pwd-box">
-    <h2>Панель викладача</h2>
-    <p>Введіть пароль для доступу до результатів</p>
-    <input type="password" id="pwd-input" placeholder="Пароль" onkeydown="if(event.key==='Enter')checkPwd()">
-    <div class="pwd-err" id="pwd-err"></div>
-    <button class="primary" onclick="checkPwd()" style="width:100%">Увійти</button>
-    <br><br>
-    <button onclick="showPage('pg-voter-select')" style="width:100%">Повернутись</button>
-  </div>
-</div>
+        // Загальні місця для співробітників
+        const EMPLOYEE_SEATS = [
+            { id: 'E1', name: 'Стіл 1 (Вікно)', side: 'left' },
+            { id: 'E2', name: 'Стіл 2 (Центр)', side: 'left' },
+            { id: 'E3', name: 'Стіл 3 (Центр)', side: 'right' },
+            { id: 'E4', name: 'Стіл 4 (Коридор)', side: 'right' }
+        ];
 
-<div id="pg-admin" class="page">
-  <div class="logo">
-    <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg></div>
-    <div class="logo-text"><h1>Результати</h1><p id="admin-subtitle"></p></div>
-  </div>
-  <div class="stats-grid" id="admin-stats"></div>
-  <div class="tab-row" id="admin-tabs"></div>
-  <div id="admin-content"></div>
-  <div style="margin-top:1.5rem;display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding-top:1rem;border-top:1px solid var(--border)">
-    <button onclick="goAdmin()">Оновити зараз</button>
-    <button onclick="showPage('pg-voter-select')">До голосування</button>
-    <span style="font-size:12px;color:var(--muted)" id="admin-last-updated"></span>
-    <span class="reset-link" onclick="confirmReset()">Скинути всі голоси</span>
-  </div>
-</div>
+        // Глобальний стан
+        let db = { bookings: {} }; 
+        let currentUser = null;
+        let currentUserRole = null; 
+        let currentWeekOffset = 0; 
+        let selectedDateStr = null;
+        let isAdmin = false;
+        const REFRESH_INTERVAL = 15000;
 
-</div>
-<script>
-const API_KEY='$2a$10$sob4JoxEjCWHuzxWpPEZkuH29lhni9FEMn6ThLwGaKcbuheV4duoe';
-const JSONBIN_URL='https://api.jsonbin.io/v3/b';
-const ADMIN_PASSWORD='12';
-let BIN_ID=null;
-const BIN_KEY="sm_voting_bin_v4"; const HARDCODED_BIN="69d023ce36566621a878731e";
+        // Ініціалізація дат
+        window.addEventListener('DOMContentLoaded', () => {
+            initSync();
+            setInterval(syncGet, REFRESH_INTERVAL);
+            document.getElementById('adminDateFilter').value = new Date().toISOString().split('T')[0];
+        });
 
-const STUDENTS=[
-  "Алібаєв Сефер","Болдескул Георг","Бурховецький Денис","Вернидуб Віталій",
-  "Волков Вадим","Глущенко Андрій","Доманська Наталія","Лобас Едуард",
-  "Міхальков Максим","Мосін Станіслав","Полегенько Павло","Притула Ярослав",
-  "Романенко Андрій","Ручка Петро","Селезньов Євген","Стецій Назар",
-  "Тумановський Володимир","Хайтул Микола","Хомченовський Дмитро","Чіголя Артур"
-];
+        // --- РОБОТА З ЧАСОМ (ПН-ПТ) ---
+        function getWeekDates(offset = 0) {
+            let dates = [];
+            let today = new Date();
+            let dayOfWeek = today.getDay(); 
+            let distanceFromMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; 
+            let monday = new Date(today);
+            monday.setDate(today.getDate() + distanceFromMonday + (offset * 7));
 
-const NOMS=[
-  {id:"n31",g:"m",tag:"MVP курсу",title:"MVP курсу",sub:"найкращий з найкращих",desc:"Один студент, який справив найбільший вплив на курс загалом — і результатами, і участю, і атмосферою. Якби довелось обрати лише одну людину — це вона.",mvp:true},
-  {id:"n01",g:"r",tag:"Результат і прогрес",title:"Прорив сезону",sub:"як Erling Haaland",desc:"Хто зробив найпомітніший стрибок у розвитку? Можливо, на початку курсу людина виглядала скромно, але до фіналу повністю розкрилась і здивувала всіх."},
-  {id:"n02",g:"r",tag:"Результат і прогрес",title:"Найкращий бомбардир",sub:"як Cristiano Ronaldo",desc:"Хто стабільно давав найвищий результат? Завжди підготовлений, завжди здає вчасно, завжди на рівні або вище. Машина продуктивності."},
-  {id:"n03",g:"r",tag:"Результат і прогрес",title:"Найкращий асистент",sub:"як Kevin De Bruyne",desc:"Хто допомагав іншим ставати кращими? Пояснював матеріал, ділився ресурсами, підтримував команду — і через це загальний рівень групи ріс."},
-  {id:"n04",g:"r",tag:"Результат і прогрес",title:"Game changer",sub:"як Lionel Messi",desc:"Хто змінював хід дискусії або завдання одним нестандартним ходом? Коли здавалось, що все зрозуміло — ця людина пропонувала зовсім інший кут зору."},
-  {id:"n05",g:"i",tag:"Інтелект і мислення",title:"Генератор незручних питань",sub:"як Pep Guardiola",desc:"Хто ставив питання, які змушували зупинитись і подумати? Не щоб зірвати заняття, а щоб докопатись до суті — навіть якщо це некомфортно."},
-  {id:"n06",g:"i",tag:"Інтелект і мислення",title:"Аналітичний мікроскоп",sub:"як Xavi Hernández",desc:"Хто розбирав кожну тему до найдрібніших деталей? Поки інші дивились на ціле, ця людина бачила зв'язки і нюанси, які інші пропускали."},
-  {id:"n07",g:"i",tag:"Інтелект і мислення",title:"Скаут від народження",sub:"як Monchi",desc:"Хто вмів помічати сильні сторони і потенціал — в людях, ідеях, ситуаціях? Ця людина бачила цінність там, де інші ще не розглянули."},
-  {id:"n08",g:"i",tag:"Інтелект і мислення",title:"Енциклопедія курсу",sub:"як Andrea Pirlo",desc:"Хто найкраще знав матеріал і міг пояснити будь-яку тему? До кого зверталися, коли щось незрозуміло — і завжди отримували чітку відповідь?"},
-  {id:"n09",g:"i",tag:"Інтелект і мислення",title:"Реаліст сезону",sub:"як José Mourinho",desc:"Хто тверезо оцінював ситуацію без зайвого оптимізму? Коли всі захоплювались ідеєю, ця людина спокійно вказувала на ризики і реальні обмеження."},
-  {id:"n10",g:"w",tag:"Дисципліна і робота",title:"Гросмейстер дедлайнів",sub:"як Luka Modrić",desc:"Хто ніколи не запізнювався з дедлайнами і завжди був підготовлений? Стабільність і системність — навіть коли іншим було складно."},
-  {id:"n11",g:"w",tag:"Дисципліна і робота",title:"Чемпіон самостійної роботи",sub:"як Robert Lewandowski",desc:"Хто найбільше працював самостійно, без нагадувань і підштовхувань? Внутрішня мотивація, дисципліна і відповідальність перед собою."},
-  {id:"n12",g:"w",tag:"Дисципліна і робота",title:"Надійне плече",sub:"як Sergio Busquets",desc:"На кого можна було завжди розраховувати? Не найгучніший і не найпомітніший — але коли потрібна допомога або підтримка, ця людина завжди поряд."},
-  {id:"n13",g:"w",tag:"Дисципліна і робота",title:"Майстер лаконічності",sub:"як Paolo Maldini",desc:"Хто вмів висловлювати думки чітко і коротко? Одне речення — і все зрозуміло. Без зайвих слів, без «ну, типу», без розмивання суті."},
-  {id:"n14",g:"t",tag:"Командна взаємодія",title:"Миротворець роздягальні",sub:"як Andrés Iniesta",desc:"Хто підтримував позитивну атмосферу в групі? Знімав напруження, мирив погляди, робив так, що всім було комфортно — навіть у складних дискусіях."},
-  {id:"n15",g:"t",tag:"Командна взаємодія",title:"Капітан курсу",sub:"як Carles Puyol",desc:"Хто брав на себе лідерство, коли це було потрібно? Не обов'язково найгучніший — але за ним йшли, йому довіряли, він організовував і надихав."},
-  {id:"n16",g:"t",tag:"Командна взаємодія",title:"Конструктивний критик",sub:"як Carlo Ancelotti",desc:"Хто давав фідбек, який реально допомагав? Не просто 'добре' або 'погано' — а конкретно, по суті, з повагою і з орієнтацією на покращення."},
-  {id:"n17",g:"t",tag:"Командна взаємодія",title:"Драйвер змін",sub:"як Jürgen Klopp",desc:"Хто рухав процес вперед і заряджав інших? Ентузіазм, ініціатива, бажання зробити більше — і це передавалось іншим."},
-  {id:"n18",g:"f",tag:"Гнучкість і рішення",title:"Головний по «Плану Б»",sub:"як Thomas Müller",desc:"Хто знаходив альтернативи, коли перший план не спрацьовував? Не панікував, не здавався — а швидко перебудовувався і знаходив інший шлях."},
-  {id:"n19",g:"f",tag:"Гнучкість і рішення",title:"Антикризовий менеджер",sub:"як Diego Simeone",desc:"Хто ставав ефективнішим у складних, стресових ситуаціях? Коли дедлайн горів або щось йшло не так — ця людина збирала себе і справлялась."},
-  {id:"n20",g:"f",tag:"Гнучкість і рішення",title:"Майстер адаптації",sub:"як Zlatan Ibrahimović",desc:"Хто найкраще підлаштовувався під нові умови, формати і завдання? Зміни не лякали — ця людина швидко перебудовувалась і залишалась ефективною."},
-  {id:"n21",g:"s",tag:"Стиль і вплив",title:"Візуальний естет",sub:"як David Beckham",desc:"Хто подавав матеріали найякісніше з точки зору оформлення та структури? Презентації, документи, слайди — охайно, зрозуміло, з увагою до деталей."},
-  {id:"n22",g:"s",tag:"Стиль і вплив",title:"PRO Storyteller",sub:"як Thierry Henry",desc:"Хто найкраще вмів розповідати і пояснювати? Не просто передавав факти, а будував наратив — з початком, кульмінацією, висновком. Слухати було цікаво."},
-  {id:"n23",g:"s",tag:"Стиль і вплив",title:"Переговорник рівня Райоли",sub:"як Mino Raiola",desc:"Хто демонстрував найкращі навички переговорів і аргументації? Вмів відстоювати позицію, знаходити компроміс і переконувати — чітко і з повагою."},
-  {id:"n24",g:"s",tag:"Стиль і вплив",title:"Сірий кардинал",sub:"як Florentino Pérez",desc:"Хто впливав на процеси і рішення без зайвого галасу? Непомітно, але ефективно — ця людина формувала порядок денний, не перебуваючи в центрі уваги."},
-  {id:"n25",g:"sp",tag:"Спеціальні ролі",title:"Джокер",sub:"як Olivier Giroud",desc:"Хто давав результат саме тоді, коли це було найпотрібніше? Можливо, не завжди в топі — але в критичний момент виходив і вирішував."},
-  {id:"n26",g:"sp",tag:"Спеціальні ролі",title:"Агент 007",sub:"як N'Golo Kanté",desc:"Хто робив велику роботу, не привертаючи до себе уваги? Тихо, якісно, надійно. Без цієї людини багато б не відбулось — але вона ніколи не виставляла це напоказ."},
-  {id:"n27",g:"sp",tag:"Спеціальні ролі",title:"Візіонер гри",sub:"як Kevin De Bruyne",desc:"Хто бачив картину наперед — куди рухається тема, яке рішення спрацює, що буде важливим через кілька кроків? Стратегічне мислення і передбачення."},
-  {id:"n28",g:"u",tag:"Український контекст",title:"Архітектор системи",sub:"як Darijo Srna",desc:"Хто будував структуру там, де її не було? Створював процеси, налагоджував порядок, думав системно — і це полегшувало роботу всім навколо."},
-  {id:"n29",g:"u",tag:"Український контекст",title:"Баланс менеджменту",sub:"як Serhii Palkin",desc:"Хто вмів поєднувати стратегічне бачення з практичними діями? Не лише планував, але й виконував — і при цьому тримав фокус на головному."},
-  {id:"n30",g:"u",tag:"Український контекст",title:"Локальний стратег",sub:"як Yevhen Krasnikov",desc:"Хто найкраще розумів контекст і вмів працювати в реальних обмеженнях? Не ідеальні умови — але ця людина знаходила рішення саме в тих обставинах, що є."}
-];
+            for (let i = 0; i < 5; i++) {
+                let nextDay = new Date(monday);
+                nextDay.setDate(monday.getDate() + i);
+                dates.push(nextDay);
+            }
+            return dates;
+        }
 
-const TAG_CLASS={r:"gt-r",i:"gt-i",w:"gt-w",t:"gt-t",f:"gt-f",s:"gt-s",sp:"gt-sp",u:"gt-u",m:"gt-m"};
-let currentVoter=null,currentQ=0,answers={},remoteData={};
+        function formatDate(date) {
+            let d = date.getDate().toString().padStart(2, '0');
+            let m = (date.getMonth() + 1).toString().padStart(2, '0');
+            return `${date.getFullYear()}-${m}-${d}`;
+        }
 
-function showPage(id){
-  if(id!=='pg-admin') stopAdminRefresh();
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
+        function checkNextWeekAvailability() {
+            let today = new Date();
+            if (today.getDay() === 5 || today.getDay() === 6 || today.getDay() === 0) {
+                document.getElementById('nextWeekBtn').disabled = false;
+                document.getElementById('nextWeekBtn').style.opacity = "1";
+            } else {
+                document.getElementById('nextWeekBtn').disabled = true;
+                document.getElementById('nextWeekBtn').style.opacity = "0.4";
+            }
+        }
 
-async function initBin(){
-  BIN_ID=HARDCODED_BIN;
-  try{
-    const r=await fetch(`${JSONBIN_URL}/${BIN_ID}/latest`,{headers:{'X-Master-Key':API_KEY}});
-    if(r.ok){const d=await r.json();remoteData=d.record||{};}
-  }catch(e){
-    document.getElementById('error-area').innerHTML='<div class="error-msg">Немає з\'єднання з мережею.</div>';
-  }
-  buildVoterGrid();
-  showPage('pg-voter-select');
-  setInterval(async()=>{
-    if(document.getElementById('pg-voter-select').classList.contains('active')){
-      await loadRemote(); buildVoterGrid();
-    }
-  },15000);
-}
-async function loadRemote(){
-  try{
-    const r=await fetch(`${JSONBIN_URL}/${BIN_ID}/latest`,{headers:{'X-Master-Key':API_KEY}});
-    if(r.ok){const d=await r.json();remoteData=d.record||{};return true;}
-  }catch(e){}
-  return false;
-}
+        // --- СИНХРОНІЗАЦІЯ З JSONBIN ---
+        async function initSync() {
+            showSyncStatus("Завантаження даних...");
+            await syncGet();
+            checkNextWeekAvailability();
+        }
 
-async function saveRemote(){
-  try{
-    const r=await fetch(`${JSONBIN_URL}/${BIN_ID}`,{
-      method:'PUT',
-      headers:{'Content-Type':'application/json','X-Master-Key':API_KEY},
-      body:JSON.stringify(remoteData)
-    });
-    return r.ok;
-  }catch(e){return false;}
-}
+        async function syncGet() {
+            try {
+                let res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+                    headers: { 'X-Master-Key': API_KEY }
+                });
+                let data = await res.json();
+                db = data.record || { bookings: {} };
+                showSyncStatus("Дані оновлено синхронно");
+                if (currentUser) {
+                    renderDaysGrid();
+                    if (selectedDateStr) refreshDayView();
+                }
+                if (isAdmin) renderAdminData();
+            } catch (err) {
+                showSyncStatus("Помилка з'єднання", true);
+            }
+        }
 
-function buildVoterGrid(){
-  const votes=remoteData.votes||{};
-  const grid=document.getElementById('voter-grid');
-  grid.innerHTML='';
-  STUDENTS.forEach(s=>{
-    const btn=document.createElement('button');
-    btn.className='voter-btn'+(votes[s]?' voted':'');
-    btn.innerHTML=s+(votes[s]?'<br><span style="font-size:11px;font-weight:600">Проголосував</span>':'');
-    btn.onclick=()=>startVoting(s);
-    grid.appendChild(btn);
-  });
-}
+        async function syncPut(newData) {
+            showSyncStatus("Збереження...");
+            try {
+                let res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': API_KEY
+                    },
+                    body: JSON.stringify(newData)
+                });
+                if (res.ok) {
+                    showSyncStatus("Збережено!");
+                    db = newData;
+                    renderDaysGrid();
+                    if (selectedDateStr) refreshDayView();
+                    if (isAdmin) renderAdminData();
+                } else {
+                    showSyncStatus("Помилка збереження", true);
+                }
+            } catch (err) {
+                showSyncStatus("Помилка мережі", true);
+            }
+        }
 
-async function startVoting(name){
-  await loadRemote();
-  const votes=remoteData.votes||{};
-  if(votes[name]){
-    if(!confirm(name+' вже проголосував. Проголосувати заново?')) return;
-  }
-  currentVoter=name;
-  answers={};
-  currentQ=0;
-  document.getElementById('voter-name-display').textContent=name;
-  showPage('pg-voting');
-  renderQ();
-}
+        function showSyncStatus(msg, isError = false) {
+            const el = document.getElementById('syncStatus');
+            el.innerText = msg;
+            el.style.color = isError ? "var(--red)" : "#6b7280";
+        }
 
-function availableStudents(excludeQIdx){
-  const chosen=new Set();
-  NOMS.forEach((n,i)=>{
-    if(i!==excludeQIdx && answers[n.id] && answers[n.id]!=='__skip'){
-      chosen.add(answers[n.id]);
-    }
-  });
-  return STUDENTS.filter(s=>s!==currentVoter&&!chosen.has(s));
-}
+        // --- АВТОРИЗАЦІЯ ---
+        function login() {
+            const user = document.getElementById('userSelect').value;
+            if (!user) return alert("Будь ласка, оберіть ім'я!");
 
-function allAssigned(){
-  const eligible=STUDENTS.filter(s=>s!==currentVoter);
-  const chosen=new Set();
-  NOMS.forEach(n=>{if(answers[n.id]&&answers[n.id]!=='__skip') chosen.add(answers[n.id]);});
-  return chosen.size>=eligible.length;
-}
+            currentUser = user;
+            currentUserRole = MANAGERS.includes(user) ? 'manager' : 'employee';
 
-function nextUnanswered(fromIdx){
-  for(let i=fromIdx+1;i<NOMS.length;i++){
-    if(!answers[NOMS[i].id]) return i;
-  }
-  for(let i=0;i<=fromIdx;i++){
-    if(!answers[NOMS[i].id]) return i;
-  }
-  return -1;
-}
+            document.getElementById('currentUserName').innerText = user;
+            document.getElementById('currentUserRole').innerText = currentUserRole === 'manager' ? 'Керівник' : 'Співробітник';
 
-function renderNavDots(){
-  const container=document.getElementById('nav-dots');
-  container.innerHTML='';
-  NOMS.forEach((n,i)=>{
-    const dot=document.createElement('button');
-    dot.className='nav-dot';
-    dot.textContent=i+1;
-    const val=answers[n.id];
-    if(i===currentQ) dot.classList.add('current');
-    else if(val&&val!=='__skip') dot.classList.add('answered');
-    else if(val==='__skip') dot.classList.add('answered');
-    dot.title=n.title;
-    dot.onclick=()=>{saveCurrentSel();currentQ=i;renderQ();};
-    container.appendChild(dot);
-  });
-}
+            document.getElementById('authScreen').classList.add('hidden');
+            document.getElementById('mainScreen').classList.remove('hidden');
 
-function saveCurrentSel(){
-  const sel=document.getElementById('sel-nom');
-  if(sel&&sel.value) answers[NOMS[currentQ].id]=sel.value;
-}
+            currentWeekOffset = 0;
+            renderDaysGrid();
+        }
 
-function renderQ(){
-  const nom=NOMS[currentQ];
-  const total=NOMS.length;
-  const answered=NOMS.filter(n=>answers[n.id]).length;
-  const remaining=STUDENTS.filter(s=>s!==currentVoter).length - new Set(NOMS.filter(n=>answers[n.id]&&answers[n.id]!=='__skip').map(n=>answers[n.id])).size;
+        function logout() {
+            currentUser = null;
+            currentUserRole = null;
+            document.getElementById('authScreen').classList.remove('hidden');
+            document.getElementById('mainScreen').classList.add('hidden');
+            document.getElementById('dayActionSection').classList.add('hidden');
+        }
 
-  document.getElementById('q-counter-text').textContent=
-    `Питання ${currentQ+1} з ${total} · залишилось розподілити: ${remaining}`;
-  document.getElementById('prog-fill').style.width=Math.round((answered/total)*100)+'%';
+        // --- ЛОГІКА ІНТЕРФЕЙСУ БРОНЮВАННЯ ---
+        function changeWeek(direction) {
+            if (direction === 1) {
+                let today = new Date();
+                if (today.getDay() !== 5 && today.getDay() !== 6 && today.getDay() !== 0) return;
+            }
+            currentWeekOffset += direction;
+            if (currentWeekOffset < 0) currentWeekOffset = 0;
+            if (currentWeekOffset > 1) currentWeekOffset = 1;
 
-  renderNavDots();
+            renderDaysGrid();
+            document.getElementById('dayActionSection').classList.add('hidden');
+            selectedDateStr = null;
+        }
 
-  const opts=availableStudents(currentQ);
-  const cur=answers[nom.id]||'';
+        function renderDaysGrid() {
+            const dates = getWeekDates(currentWeekOffset);
+            const grid = document.getElementById('daysGrid');
+            grid.innerHTML = '';
 
-  let optHTML='<option value="">— оберіть одногрупника —</option>';
-  opts.forEach(s=>{
-    optHTML+=`<option value="${s}"${cur===s?' selected':''}>${s}</option>`;
-  });
+            const startStr = dates[0].toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+            const endStr = dates[4].toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+            document.getElementById('weekLabel').innerText = `${startStr} — ${endStr}`;
 
-  document.getElementById('q-area').innerHTML=`
-    <div class="card">
-      <div class="q-num">Питання ${currentQ+1}</div>
-      <span class="group-tag ${TAG_CLASS[nom.g]}">${nom.tag}</span>
-      <div class="q-title">${nom.title}</div>
-      <div class="q-sub">${nom.sub}</div>
-      <div class="q-desc">${nom.desc}</div>
-      <select id="sel-nom" onchange="onSelect('${nom.id}',this.value)">${optHTML}</select>
-    </div>`;
+            document.getElementById('prevWeekBtn').disabled = (currentWeekOffset === 0);
 
-  document.getElementById('btn-prev').style.visibility=currentQ===0?'hidden':'visible';
-  document.getElementById('btn-next').textContent=currentQ===total-1?'Завершити':'Далі';
-}
+            const daysNames = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця'];
 
-function onSelect(nomId, val){
-  if(!val) return;
-  answers[nomId]=val;
-  renderNavDots();
-  if(allAssigned()){
-    NOMS.forEach(n=>{if(!answers[n.id]) answers[n.id]='__skip';});
-    submitVotes();
-  }
-}
+            dates.forEach((date, index) => {
+                const dateStr = formatDate(date);
+                const dayBookings = db.bookings[dateStr] || {};
+                
+                let userStatusText = "Немає броні";
+                let badgeClass = "";
+                if (dayBookings[currentUser]) {
+                    if (dayBookings[currentUser].format === 'office') {
+                        userStatusText = `В офісі: ${dayBookings[currentUser].seat}`;
+                        badgeClass = "badge-office";
+                    } else {
+                        userStatusText = "Віддалено";
+                        badgeClass = "badge-remote";
+                    }
+                }
 
-function nextQ(){
-  saveCurrentSel();
-  const nom=NOMS[currentQ];
-  if(nom.mvp&&!answers[nom.id]){
-    alert('MVP — обов\'язкове поле. Будь ласка, оберіть студента.');
-    return;
-  }
-  const next=nextUnanswered(currentQ);
-  if(next>=0){
-    currentQ=next;
-    renderQ();
-  } else {
-    NOMS.forEach(n=>{if(!answers[n.id]) answers[n.id]='__skip';});
-    submitVotes();
-  }
-}
+                const card = document.createElement('div');
+                card.className = `day-card ${selectedDateStr === dateStr ? 'active' : ''}`;
+                card.onclick = () => selectDay(dateStr, daysNames[index], date.toLocaleDateString('uk-UA'));
 
+                card.innerHTML = `
+                    <div style="font-weight:bold;">${daysNames[index]}</div>
+                    <div class="date-sub">${date.toLocaleDateString('uk-UA')}</div>
+                    <div class="status-badge ${badgeClass}">${userStatusText}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
 
-function prevQ(){
-  saveCurrentSel();
-  if(currentQ>0){currentQ--;renderQ();}
-}
+        function selectDay(dateStr, dayName, displayDate) {
+            selectedDateStr = dateStr;
+            document.getElementById('dayActionSection').classList.remove('hidden');
+            document.getElementById('selectedDayTitle').innerText = `${dayName} (${displayDate})`;
+            renderDaysGrid(); 
+            refreshDayView();
+        }
 
-async function submitVotes(){
-  showPage('pg-saving');
-  await loadRemote();
-  if(!remoteData.votes) remoteData.votes={};
-  remoteData.votes[currentVoter]={...answers};
-  const ok=await saveRemote();
-  if(ok){
-    const total=Object.keys(remoteData.votes).length;
-    document.getElementById('done-stats').innerHTML=`
-      <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-lbl">проголосувало</div></div>
-      <div class="stat-box"><div class="stat-num">${STUDENTS.length-total}</div><div class="stat-lbl">очікуємо</div></div>
-      <div class="stat-box"><div class="stat-num">${STUDENTS.length}</div><div class="stat-lbl">усього</div></div>`;
-    buildVoterGrid();
-    showPage('pg-done');
-  } else {
-    showPage('pg-voter-select');
-    document.getElementById('error-area').innerHTML='<div class="error-msg">Помилка збереження. Спробуйте ще раз.</div>';
-  }
-}
+        function refreshDayView() {
+            const dayBookings = db.bookings[selectedDateStr] || {};
+            const userBooking = dayBookings[currentUser];
 
-function askAdminPassword(){
-  document.getElementById('pwd-input').value='';
-  document.getElementById('pwd-err').textContent='';
-  showPage('pg-pwd');
-}
+            if (userBooking) {
+                document.getElementById('workFormatSelect').value = userBooking.format;
+                document.getElementById('cancelBookingBtn').classList.remove('hidden');
+            } else {
+                document.getElementById('workFormatSelect').value = 'none';
+                document.getElementById('cancelBookingBtn').classList.add('hidden');
+            }
 
-function checkPwd(){
-  const val=document.getElementById('pwd-input').value;
-  if(val===ADMIN_PASSWORD){
-    goAdmin();
-  } else {
-    document.getElementById('pwd-err').textContent='Невірний пароль. Спробуйте ще раз.';
-  }
-}
+            handleFormatChange();
+        }
 
-function calcTally(nomId){
-  const votes=remoteData.votes||{};
-  const t={};
-  STUDENTS.forEach(s=>t[s]=0);
-  Object.values(votes).forEach(v=>{
-    const p=v[nomId];
-    if(p&&p!=='__skip'&&t[p]!==undefined) t[p]++;
-  });
-  return t;
-}
+        function handleFormatChange() {
+            const format = document.getElementById('workFormatSelect').value;
+            const mapSection = document.getElementById('officeMapSection');
+            
+            if (format === 'office') {
+                mapSection.classList.remove('hidden');
+                renderOfficeMap();
+            } else if (format === 'remote') {
+                mapSection.classList.add('hidden');
+                saveBooking('remote', null);
+            } else {
+                mapSection.classList.add('hidden');
+            }
+        }
 
-async function goAdmin(){
-  showPage('pg-loader');
-  await loadRemote();
-  const votes=remoteData.votes||{};
-  const total=Object.keys(votes).length;
-  document.getElementById('admin-subtitle').textContent=`Проголосували ${total} з ${STUDENTS.length} студентів`;
-  document.getElementById('admin-stats').innerHTML=`
-    <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-lbl">проголосувало</div></div>
-    <div class="stat-box"><div class="stat-num">${STUDENTS.length-total}</div><div class="stat-lbl">очікуємо</div></div>
-    <div class="stat-box"><div class="stat-num">${NOMS.length}</div><div class="stat-lbl">номінацій</div></div>`;
-  const groups=[...new Set(NOMS.map(n=>n.tag))];
-  const tabs=document.getElementById('admin-tabs');
-  tabs.innerHTML='';
-  ['Всі номінації','Загальний рейтинг','Статус голосування',...groups].forEach((g,i)=>{
-    const btn=document.createElement('button');
-    btn.className='tab'+(i===0?' active':'');
-    btn.textContent=g;
-    btn.onclick=()=>{tabs.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');renderAdmin(g);};
-    tabs.appendChild(btn);
-  });
-  renderAdmin('Всі номінації');
-  showPage('pg-admin');
-  startAdminRefresh();
-}
+        // --- ГЕНЕРАЦІЯ ТА РОБОТА З КАРТОЮ ОФІСУ ---
+        function renderOfficeMap() {
+            const leftContainer = document.getElementById('leftSeats');
+            const rightContainer = document.getElementById('rightSeats');
+            leftContainer.innerHTML = '';
+            rightContainer.innerHTML = '';
 
-let adminRefreshTimer=null;
-function startAdminRefresh(){
-  stopAdminRefresh();
-  adminRefreshTimer=setInterval(async()=>{
-    if(document.getElementById('pg-admin').classList.contains('active')){
-      await loadRemote();
-      const votes=remoteData.votes||{};
-      const total=Object.keys(votes).length;
-      document.getElementById('admin-subtitle').textContent=`Проголосували ${total} з ${STUDENTS.length} студентів`;
-      document.getElementById('admin-stats').innerHTML=`
-        <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-lbl">проголосувало</div></div>
-        <div class="stat-box"><div class="stat-num">${STUDENTS.length-total}</div><div class="stat-lbl">очікуємо</div></div>
-        <div class="stat-box"><div class="stat-num">${NOMS.length}</div><div class="stat-lbl">номінацій</div></div>`;
-      const activeTab=document.querySelector('#admin-tabs .tab.active');
-      if(activeTab) renderAdmin(activeTab.textContent);
-      const now=new Date();
-      const t=`${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
-      const el=document.getElementById('admin-last-updated');
-      if(el) el.textContent=`Оновлено о ${t}`;
-    }
-  },15000);
-}
-function stopAdminRefresh(){
-  if(adminRefreshTimer){clearInterval(adminRefreshTimer);adminRefreshTimer=null;}
-}
+            const dayBookings = db.bookings[selectedDateStr] || {};
+            let managersSeatsStatus = {};
 
-function renderAdmin(view){
-  const votes=remoteData.votes||{};
-  const el=document.getElementById('admin-content');
-  const voterCount=Object.keys(votes).length||1;
+            MANAGERS.forEach(m => {
+                const b = dayBookings[m];
+                const fixedSeatName = MANAGER_SEATS[m];
+                if (!b || b.format === 'office') {
+                    managersSeatsStatus[fixedSeatName] = { taken: true, by: m, isManagerFixed: true };
+                } else if (b.format === 'remote') {
+                    managersSeatsStatus[fixedSeatName] = { taken: false, by: null };
+                }
+            });
 
-  if(view==='Статус голосування'){
-    el.innerHTML=STUDENTS.map(s=>`
-      <div class="status-row">
-        <span style="display:flex;align-items:center;gap:8px">
-          <span class="dot ${votes[s]?'dot-done':'dot-wait'}"></span>${s}
-        </span>
-        <span style="font-size:12px;font-weight:600;color:${votes[s]?'var(--green)':'#aaa'}">${votes[s]?'Готово':'Очікується'}</span>
-      </div>`).join('');
-    return;
-  }
+            MANAGERS.forEach(m => {
+                const seatName = MANAGER_SEATS[m];
+                const status = managersSeatsStatus[seatName];
+                const seatEl = document.createElement('div');
+                seatEl.className = 'seat';
+                
+                let targetContainer = leftContainer;
+                if (seatName.includes('Коридор')) targetContainer = rightContainer;
 
-  if(view==='Загальний рейтинг'){
-    const totals={};
-    STUDENTS.forEach(s=>totals[s]=0);
-    NOMS.forEach(n=>{const t=calcTally(n.id);STUDENTS.forEach(s=>totals[s]+=t[s]);});
-    const sorted=STUDENTS.slice().sort((a,b)=>totals[b]-totals[a]);
-    const mx=totals[sorted[0]]||1;
-    el.innerHTML=sorted.map((s,i)=>`
-      <div class="result-row">
-        <span class="result-name"><span style="color:var(--muted);margin-right:6px;font-size:11px">${i+1}</span>${s}</span>
-        <div class="result-bar-wrap"><div class="result-bar" style="width:${Math.round(totals[s]/mx*100)}%"></div></div>
-        <span class="result-count">${totals[s]}</span>
-      </div>`).join('');
-    return;
-  }
+                if (status.taken) {
+                    seatEl.classList.add('taken');
+                    if (currentUser === status.by) {
+                        seatEl.classList.add('my-booking');
+                        seatEl.innerHTML = `${seatName} <span>Ви (Авто)</span>`;
+                    } else {
+                        seatEl.innerHTML = `${seatName} <span>Зайнято: ${status.by}</span>`;
+                    }
+                } else {
+                    let occupiedByEmployee = Object.keys(dayBookings).find(k => dayBookings[k].seat === seatName);
+                    if (occupiedByEmployee) {
+                        seatEl.classList.add('taken');
+                        if (currentUser === occupiedByEmployee) seatEl.classList.add('my-booking');
+                        seatEl.innerHTML = `${seatName} <span>Зайнято: ${occupiedByEmployee}</span>`;
+                    } else {
+                        if (currentUserRole === 'employee') {
+                            seatEl.innerHTML = `${seatName} <br>(Вільне К)`;
+                            seatEl.onclick = () => selectSeat(seatName);
+                        } else {
+                            seatEl.classList.add('disabled');
+                            seatEl.innerHTML = `${seatName} <span>Порожнє</span>`;
+                        }
+                    }
+                }
+                targetContainer.appendChild(seatEl);
+            });
 
-  const nomsToShow=view==='Всі номінації'?NOMS:NOMS.filter(n=>n.tag===view);
-  el.innerHTML=nomsToShow.map(nom=>{
-    const tally=calcTally(nom.id);
-    const sorted=Object.entries(tally).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0);
-    const winner=sorted[0];
-    const rows=sorted.slice(0,5).map(([name,cnt])=>`
-      <div class="result-row">
-        <span class="result-name" style="font-size:12px">${name}</span>
-        <div class="result-bar-wrap"><div class="result-bar" style="width:${Math.round(cnt/voterCount*100)}%"></div></div>
-        <span class="result-count">${cnt}</span>
-      </div>`).join('');
-    return `<div class="nom-card">
-      <div style="margin-bottom:4px"><span class="group-tag ${TAG_CLASS[nom.g]}">${nom.tag}</span></div>
-      <div class="nom-title">${nom.title}
-        <span style="font-weight:400;font-size:12px;color:var(--muted)">— ${nom.sub}</span>
-        ${winner?`<span class="winner-badge">${winner[0].split(' ')[0]}: ${winner[1]}</span>`:''}
-      </div>
-      ${sorted.length?rows:'<div style="font-size:12px;color:#aaa">Голосів ще немає</div>'}
-    </div>`;
-  }).join('');
-}
+            const dividerL = document.createElement('div'); dividerL.style.height="15px"; leftContainer.appendChild(dividerL);
+            const dividerR = document.createElement('div'); dividerR.style.height="15px"; rightContainer.appendChild(dividerR);
 
-async function confirmReset(){
-  if(!confirm('Скинути ВСІ голоси? Це незворотно.')) return;
-  showPage('pg-loader');
-  remoteData={votes:{}};
-  await saveRemote();
-  buildVoterGrid();
-  showPage('pg-voter-select');
-}
+            EMPLOYEE_SEATS.forEach(seat => {
+                const seatEl = document.createElement('div');
+                seatEl.className = 'seat';
+                const targetContainer = seat.side === 'left' ? leftContainer : rightContainer;
+                let occupiedBy = Object.keys(dayBookings).find(k => dayBookings[k].seat === seat.name);
 
-initBin();
-</script>
+                if (currentUserRole === 'manager') {
+                    seatEl.classList.add('disabled');
+                    if (occupiedBy) {
+                        seatEl.innerHTML = `${seat.name} <span>${occupiedBy}</span>`;
+                    } else {
+                        seatEl.innerHTML = `${seat.name} <span>Співробітники</span>`;
+                    }
+                } else {
+                    if (occupiedBy) {
+                        seatEl.classList.add('taken');
+                        if (currentUser === occupiedBy) {
+                            seatEl.classList.add('my-booking');
+                            seatEl.innerHTML = `${seat.name} <span>Ваше місце</span>`;
+                            seatEl.onclick = () => selectSeat(seat.name);
+                        } else {
+                            seatEl.innerHTML = `${seat.name} <span>Зайнято: ${occupiedBy}</span>`;
+                        }
+                    } else {
+                        seatEl.innerHTML = seat.name;
+                        seatEl.onclick = () => selectSeat(seat.name);
+                    }
+                }
+                targetContainer.appendChild(seatEl);
+            });
+        }
+
+        function selectSeat(seatName) {
+            if (currentUserRole === 'manager') return;
+            saveBooking('office', seatName);
+        }
+
+        function saveBooking(format, seatName) {
+            let updatedDb = JSON.parse(JSON.stringify(db));
+            if (!updatedDb.bookings[selectedDateStr]) updatedDb.bookings[selectedDateStr] = {};
+
+            if (currentUserRole === 'manager' && format === 'office') {
+                seatName = MANAGER_SEATS[currentUser];
+            }
+
+            updatedDb.bookings[selectedDateStr][currentUser] = { format: format, seat: seatName };
+            syncPut(updatedDb);
+        }
+
+        function cancelCurrentBooking() {
+            if (!selectedDateStr || !currentUser) return;
+            let updatedDb = JSON.parse(JSON.stringify(db));
+            if (updatedDb.bookings[selectedDateStr] && updatedDb.bookings[selectedDateStr][currentUser]) {
+                delete updatedDb.bookings[selectedDateStr][currentUser];
+                if (Object.keys(updatedDb.bookings[selectedDateStr]).length === 0) delete updatedDb.bookings[selectedDateStr];
+                syncPut(updatedDb);
+            }
+        }
+
+        // --- АДМІН-ПАНЕЛЬ ---
+        function toggleAdminPanel() {
+            if (!isAdmin) {
+                const pass = prompt("Введіть пароль адміністратора:");
+                if (pass === "12") {
+                    isAdmin = true;
+                    document.getElementById('adminScreen').classList.remove('hidden');
+                    document.getElementById('adminToggleBtn').innerText = "Закрити Адмін Panel";
+                    renderAdminData();
+                } else {
+                    alert("Невірний пароль!");
+                }
+            } else {
+                isAdmin = false;
+                document.getElementById('adminScreen').classList.add('hidden');
+                document.getElementById('adminToggleBtn').innerText = "Адмін Panel";
+            }
+        }
+
+        function switchAdminTab(tabNum) {
+            document.getElementById('tab1').classList.toggle('active', tabNum === 1);
+            document.getElementById('tab2').classList.toggle('active', tabNum === 2);
+            document.getElementById('adminTabContent1').classList.toggle('hidden', tabNum !== 1);
+            document.getElementById('adminTabContent2').classList.toggle('hidden', tabNum !== 2);
+            renderAdminData();
+        }
+
+        function renderAdminData() {
+            const liveBody = document.getElementById('adminLiveBookings');
+            const archiveBody = document.getElementById('adminArchiveBookings');
+            liveBody.innerHTML = '';
+            archiveBody.innerHTML = '';
+
+            const filterDate = document.getElementById('adminDateFilter').value;
+            const allDates = Object.keys(db.bookings).sort((a,b) => new Date(b) - new Date(a));
+
+            allDates.forEach(dateStr => {
+                const users = db.bookings[dateStr] || {};
+                Object.keys(users).forEach(user => {
+                    const info = users[user];
+                    const archRow = document.createElement('tr');
+                    archRow.innerHTML = `
+                        <td>${dateStr}</td>
+                        <td>${user}</td>
+                        <td><span class="status-badge ${info.format === 'office' ? 'badge-office':'badge-remote'}">${info.format === 'office' ? info.seat : 'Віддалено'}</span></td>
+                    `;
+                    archiveBody.appendChild(archRow);
+
+                    if (!filterDate || filterDate === dateStr) {
+                        const liveRow = document.createElement('tr');
+                        liveRow.innerHTML = `
+                            <td>${dateStr}</td>
+                            <td><strong>${user}</strong></td>
+                            <td>${info.format === 'office' ? '🏢 В офісі' : '🏠 Віддалено'}</td>
+                            <td>${info.seat || '-'}</td>
+                            <td><button class="btn btn-danger" style="padding:3px 8px; font-size:12px;" onclick="adminResetSingle('${dateStr}', '${user}')">Скинути</button></td>
+                        `;
+                        liveBody.appendChild(liveRow);
+                    }
+                });
+            });
+        }
+
+        function adminResetSingle(dateStr, user) {
+            if (confirm(`Скасувати бронювання для ${user} на дату ${dateStr}?`)) {
+                let updatedDb = JSON.parse(JSON.stringify(db));
+                if (updatedDb.bookings[dateStr]) {
+                    delete updatedDb.bookings[dateStr][user];
+                    if (Object.keys(updatedDb.bookings[dateStr]).length === 0) delete updatedDb.bookings[dateStr];
+                    syncPut(updatedDb);
+                }
+            }
+        }
+
+        function exportArchive() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `pass_booking_archive_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+    </script>
 </body>
 </html>
