@@ -21,14 +21,14 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
-        body { background-color: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
+        body { background-color: var(--bg); color: var(--text); padding: 15px; line-height: 1.5; }
 
-        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--gray-light); padding-bottom: 15px; margin-bottom: 20px; }
-        h1 { color: var(--blue); font-size: 24px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); width: 100%; }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--gray-light); padding-bottom: 15px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        h1 { color: var(--blue); font-size: 22px; }
         h2 { font-size: 18px; margin-bottom: 15px; color: var(--blue); }
 
-        .btn { background: var(--blue); color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: 6px; font-size: 14px; transition: background 0.2s; }
+        .btn { background: var(--blue); color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 6px; font-size: 14px; transition: background 0.2s; white-space: nowrap; }
         .btn:hover { background: var(--blue-hover); }
         .btn-danger { background: var(--red); }
         .btn-danger:hover { background: var(--red-hover); }
@@ -45,46 +45,58 @@
         .tab { padding: 8px 16px; cursor: pointer; border-radius: 6px; font-weight: 500; font-size: 14px; }
         .tab.active { background: var(--blue); color: white; }
 
-        /* Логіка розкладу */
-        .week-selector { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: var(--gray-light); padding: 10px; border-radius: 8px; }
-        .days-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
-        @media (max-width: 600px) { .days-grid { grid-template-columns: 1fr; } }
-        .day-card { background: white; border: 2px solid var(--gray-border); padding: 12px; border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        /* Оптимізована логіка розкладу (календаря) */
+        .week-selector { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: var(--gray-light); padding: 10px; border-radius: 8px; flex-wrap: wrap; gap: 10px; }
+        
+        .days-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 20px; width: 100%; }
+        
+        .day-card { background: white; border: 2px solid var(--gray-border); padding: 10px 6px; border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; justify-content: space-between; align-items: center; min-height: 110px; word-wrap: break-word; overflow: hidden; }
         .day-card.active { border-color: var(--blue); background: var(--blue-light); }
-        .day-card .date-sub { font-size: 12px; color: #6b7280; }
+        .day-card .date-sub { font-size: 11px; color: #6b7280; margin-bottom: 5px; }
+        .day-card div:first-child { font-size: 14px; }
+
+        /* Оновлений статус з переносом рядків */
+        .status-badge { display: block; padding: 4px 6px; border-radius: 8px; font-size: 11px; font-weight: bold; margin-top: auto; width: 100%; word-break: break-word; white-space: normal; line-height: 1.2; text-align: center; }
+        .badge-office { background: #def7ec; color: #03543f; }
+        .badge-remote { background: #edf2f7; color: #4a5568; }
 
         /* Схема офісу */
-        .office-map-container { background: var(--gray-light); padding: 25px; border-radius: 8px; margin-top: 15px; }
-        .map-wrapper { max-width: 650px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; border: 2px solid var(--blue); position: relative; }
+        .office-map-container { background: var(--gray-light); padding: 15px; border-radius: 8px; margin-top: 15px; }
+        .map-wrapper { max-width: 100%; background: white; padding: 15px; border-radius: 12px; border: 2px solid var(--blue); position: relative; }
         .map-labels { display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; color: #6b7280; margin-bottom: 15px; border-bottom: 1px dashed var(--gray-border); padding-bottom: 8px; }
-        .row-scheme { display: grid; gap: 12px; margin-bottom: 20px; }
-        .section-title { font-size: 13px; font-weight: bold; color: #4b5563; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+        .row-scheme { display: grid; gap: 10px; margin-bottom: 25px; }
+        .section-title { font-size: 12px; font-weight: bold; color: #4b5563; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
 
-        .seat { padding: 12px; border-radius: 6px; text-align: center; font-weight: bold; font-size: 13px; cursor: pointer; border: 1px solid var(--gray-border); transition: all 0.2s; background: var(--green); color: white; display: flex; flex-direction: column; justify-content: center; min-height: 60px; }
+        .seat { padding: 8px; border-radius: 6px; text-align: center; font-weight: bold; font-size: 12px; cursor: pointer; border: 1px solid var(--gray-border); transition: all 0.2s; background: var(--green); color: white; display: flex; flex-direction: column; justify-content: center; min-height: 55px; word-break: break-word; }
         .seat:hover:not(.taken):not(.disabled) { background: var(--green-hover); }
         .seat.taken { background: var(--disabled); color: var(--text); cursor: not-allowed; font-weight: normal; }
-        .seat.taken span { font-size: 11px; display: block; color: #555; font-style: italic; }
+        .seat.taken span { font-size: 10px; display: block; color: #555; font-style: italic; }
         .seat.disabled { background: var(--gray-light); color: #9ca3af; border-style: dashed; cursor: not-allowed; }
         .seat.my-booking { background: var(--blue) !important; color: white !important; }
 
+        /* Адаптивність для мобільних екранів */
+        @media (max-width: 768px) {
+            .days-grid { grid-template-columns: 1fr; }
+            .day-card { min-height: auto; flex-direction: row; justify-content: space-between; padding: 12px; }
+            .day-card .date-sub { margin-bottom: 0; margin-left: 5px; }
+            .status-badge { width: auto; max-width: 60%; margin-top: 0; }
+            .row-scheme { grid-template-columns: 1fr !important; }
+        }
+
         /* Попередження та сповіщення */
-        .alert-box { max-width: 650px; margin: 10px auto; padding: 12px; border-radius: 6px; font-weight: bold; font-size: 14px; text-align: center; line-height: 1.4; }
+        .alert-box { max-width: 100%; margin: 10px auto; padding: 12px; border-radius: 6px; font-weight: bold; font-size: 13px; text-align: center; line-height: 1.4; }
         .alert-danger { background: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
         .alert-warning { background: #feecdc; color: #b43403; border: 1px solid #fdbb93; }
 
         /* Блок віддалених співробітників */
-        .remote-info-box { max-width: 650px; margin: 15px auto 0 auto; background: #edf2f7; padding: 15px; border-radius: 8px; border-left: 4px solid #4a5568; font-size: 14px; }
-
-        /* Статус плашка */
-        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-top: 5px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .badge-office { background: #def7ec; color: #03543f; }
-        .badge-remote { background: #edf2f7; color: #4a5568; }
+        .remote-info-box { max-width: 100%; margin: 15px auto 0 auto; background: #edf2f7; padding: 12px; border-radius: 8px; border-left: 4px solid #4a5568; font-size: 13px; }
 
         /* Адмінка */
-        .admin-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
-        .admin-table th, .admin-table td { border: 1px solid var(--gray-border); padding: 10px; text-align: left; }
+        .admin-table-wrapper { overflow-x: auto; width: 100%; margin-top: 15px; }
+        .admin-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 500px; }
+        .admin-table th, .admin-table td { border: 1px solid var(--gray-border); padding: 8px; text-align: left; }
         .admin-table th { background: var(--gray-light); }
-        .sync-indicator { font-size: 12px; color: #6b7280; text-align: right; margin-top: 5px; }
+        .sync-indicator { font-size: 11px; color: #6b7280; text-align: right; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -126,7 +138,7 @@
 
         <!-- Головний екран бронювання -->
         <div id="mainScreen" class="hidden">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
                 <div>Вітаємо, <strong id="currentUserName">...</strong> (<span id="currentUserRole"></span>)</div>
                 <button class="btn btn-danger" style="padding: 5px 10px; font-size:12px;" onclick="logout()">Вийти</button>
             </div>
@@ -134,7 +146,7 @@
             <!-- Вибір тижня -->
             <div class="week-selector">
                 <button class="btn btn-outline" style="padding:5px 10px;" id="prevWeekBtn" onclick="changeWeek(-1)">Поточний тиждень</button>
-                <span id="weekLabel" style="font-weight:bold;">...</span>
+                <span id="weekLabel" style="font-weight:bold; font-size:14px;">...</span>
                 <button class="btn btn-outline" style="padding:5px 10px;" id="nextWeekBtn" onclick="changeWeek(1)">Наступний тиждень</button>
             </div>
 
@@ -154,7 +166,7 @@
                     </select>
                 </div>
 
-                <!-- Блок для динамічних сповіщень про автопересадку або виселення -->
+                <!-- Блок для динамічних сповіщень -->
                 <div id="mapAlertBox" class="alert-box hidden"></div>
 
                 <!-- Схема офісу -->
@@ -203,32 +215,36 @@
                     <label for="adminDateFilter">Фільтр за датою:</label>
                     <input type="date" id="adminDateFilter" onchange="renderAdminData()">
                 </div>
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Дата</th>
-                            <th>Користувач</th>
-                            <th>Формат</th>
-                            <th>Місце</th>
-                            <th>Дія</th>
-                        </tr>
-                    </thead>
-                    <tbody id="adminLiveBookings"></tbody>
-                </table>
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Користувач</th>
+                                <th>Формат</th>
+                                <th>Місце</th>
+                                <th>Дія</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminLiveBookings"></tbody>
+                    </table>
+                </div>
             </div>
 
             <div id="adminTabContent2" class="hidden">
                 <button class="btn" onclick="exportArchive()">Завантажити весь архів JSON</button>
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Дата</th>
-                            <th>Користувач</th>
-                            <th>Тип роботи / Місце</th>
-                        </tr>
-                    </thead>
-                    <tbody id="adminArchiveBookings"></tbody>
-                </table>
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Користувач</th>
+                                <th>Тип роботи / Місце</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminArchiveBookings"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -394,7 +410,6 @@
                 let userStatusText = "Немає броні";
                 let badgeClass = "";
                 
-                // ГЛИБОКА ПЕРЕВІРКА СТАТУСУ (ВИПРАВЛЕНО):
                 if (dayBookings[currentUser]) {
                     if (dayBookings[currentUser].format === 'office') {
                         userStatusText = `В офісі: ${dayBookings[currentUser].seat}`;
@@ -404,10 +419,7 @@
                         badgeClass = "badge-remote";
                     }
                 } else {
-                    // Якщо в базі на цей день взагалі немає запису про поточного юзера:
                     if (currentUserRole === 'manager') {
-                        // Перевіряємо, чи не виселив адмін керівника, або чи не зайняв стіл співробітник.
-                        // Оскільки за дефолтом керівник завжди в офісі:
                         userStatusText = `В офісі: ${MANAGER_SEATS[currentUser]}`;
                         badgeClass = "badge-office";
                     } else {
