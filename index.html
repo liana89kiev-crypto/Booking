@@ -422,6 +422,8 @@
         function refreshDayView() {
             const dayBookings = db.bookings[selectedDateStr] || {};
             const userBooking = dayBookings[currentUser];
+            const alertBox = document.getElementById('mapAlertBox');
+            alertBox.classList.add('hidden'); 
 
             if (userBooking) {
                 document.getElementById('workFormatSelect').value = userBooking.format;
@@ -431,7 +433,6 @@
                 document.getElementById('cancelBookingBtn').classList.add('hidden');
             }
 
-            // Перевіряємо, чи немає глобальних системних сповіщень про авторокіровку на цей день
             checkGlobalAlertsForDay();
 
             const format = document.getElementById('workFormatSelect').value;
@@ -448,7 +449,6 @@
             const dayBookings = db.bookings[selectedDateStr] || {};
             const alertBox = document.getElementById('mapAlertBox');
             
-            // Якщо в базі записано прапорець виселеного користувача на цю дату
             if (dayBookings["_system_alert_evicted_"] && dayBookings["_system_alert_evicted_"].date === selectedDateStr) {
                 alertBox.innerText = `⚠️ Увага! Співробітника ${dayBookings["_system_alert_evicted_"].user} було автоматично знято з місця керівника, оскільки керівник повернувся в офіс, а інших вільних столів не залишилося.`;
                 alertBox.className = "alert-box alert-danger";
@@ -471,52 +471,37 @@
             if (format === 'office') {
                 if (currentUserRole === 'manager') {
                     const originalSeat = MANAGER_SEATS[currentUser];
-                    
-                    // Перевіряємо, чи зайняв це місце керівника якийсь співробітник
                     const luckyEmployee = Object.keys(dayBookings).find(k => dayBookings[k].seat === originalSeat && EMPLOYEES.includes(k));
                     
                     if (luckyEmployee) {
-                        // Рокіровка! Шукаємо співробітнику інше абсолютно вільне місце в усьому офісі
                         let busySeats = Object.values(dayBookings).map(b => b.seat);
-                        
-                        // Масив усіх потенційних 7 місць в офісі (4 співробітницькі + 3 керівні)
                         let allAvailableOfficeSeats = [...EMPLOYEE_SEATS.map(s => s.name)];
                         MANAGERS.forEach(m => {
-                            // Додаємо столи інших керівників, ТІЛЬКИ якщо вони зараз обрали remote
                             if (dayBookings[m] && dayBookings[m].format === 'remote') {
                                 allAvailableOfficeSeats.push(MANAGER_SEATS[m]);
                             }
                         });
 
-                        // Знаходимо столи, на яких фізично зараз нікого немає
                         let freeSeats = allAvailableOfficeSeats.filter(s => !busySeats.includes(s) && s !== originalSeat);
 
                         if (freeSeats.length > 0) {
-                            // Автоматично пересаджуємо співробітника на перший ліпший вільний стіл
                             const newSeatForEmployee = freeSeats[0];
                             dayBookings[luckyEmployee] = { format: 'office', seat: newSeatForEmployee };
-                            
-                            // Записуємо інформаційний алерт
                             dayBookings["_system_alert_moved_"] = { date: selectedDateStr, user: luckyEmployee, newSeat: newSeatForEmployee };
                             delete dayBookings["_system_alert_evicted_"];
                         } else {
-                            // Вільних місць взагалі немає — виселяємо співробітника в статус "Немає броні"
                             delete dayBookings[luckyEmployee];
-                            
-                            // Записуємо червоне попередження про виселення
                             dayBookings["_system_alert_evicted_"] = { date: selectedDateStr, user: luckyEmployee };
                             delete dayBookings["_system_alert_moved_"];
                         }
                     }
 
-                    // Керівник гарантовано сідає на своє рідне місце
                     dayBookings[currentUser] = { format: 'office', seat: originalSeat };
                     syncPut(updatedDb);
                     return;
                 }
                 refreshDayView();
             } else if (format === 'remote') {
-                // Якщо користувач йде на remote, видаляємо застарілі системні сповіщення про його пересадки
                 if (dayBookings["_system_alert_moved_"] && dayBookings["_system_alert_moved_"].user === currentUser) delete dayBookings["_system_alert_moved_"];
                 if (dayBookings["_system_alert_evicted_"] && dayBookings["_system_alert_evicted_"].user === currentUser) delete dayBookings["_system_alert_evicted_"];
                 
@@ -527,7 +512,6 @@
             }
         }
 
-        // --- ГЕНЕРАЦІЯ КАРТИ ОФІСУ ---
         function renderOfficeMap() {
             const managersRow = document.getElementById('managerSeatsRow');
             const employeesRow = document.getElementById('employeeSeatsRow');
@@ -546,7 +530,6 @@
 
             tablesMapWrapper.style.display = 'block';
 
-            // Базовий розподіл столів керівників
             MANAGERS.forEach(m => {
                 const b = dayBookings[m];
                 const fixedSeatName = MANAGER_SEATS[m];
@@ -560,7 +543,6 @@
                 }
             });
 
-            // Малюємо керівні столи
             MANAGERS.forEach(m => {
                 const seatName = MANAGER_SEATS[m];
                 const status = managersSeatsStatus[seatName];
@@ -597,7 +579,6 @@
                 managersRow.appendChild(seatEl);
             });
 
-            // Малюємо співробітницькі столи
             EMPLOYEE_SEATS.forEach(seat => {
                 const seatEl = document.createElement('div');
                 seatEl.className = 'seat';
@@ -616,7 +597,6 @@
                         seatEl.innerHTML = seat.name;
                         seatEl.onclick = () => saveBooking('office', seat.name);
                     } else {
-                        // Керівники за замовчуванням мають свої столи, але якщо керівника виселили, він може сісти сюди
                         seatEl.innerHTML = seat.name;
                         seatEl.onclick = () => saveBooking('office', seat.name);
                     }
@@ -629,7 +609,6 @@
             let updatedDb = JSON.parse(JSON.stringify(db));
             if (!updatedDb.bookings[selectedDateStr]) updatedDb.bookings[selectedDateStr] = {};
             
-            // Якщо співробітник обирає нове місце самостійно, чистимо старі системні сповіщення про автопересадки для нього
             if (updatedDb.bookings[selectedDateStr]["_system_alert_moved_"]?.user === currentUser) delete updatedDb.bookings[selectedDateStr]["_system_alert_moved_"];
             if (updatedDb.bookings[selectedDateStr]["_system_alert_evicted_"]?.user === currentUser) delete updatedDb.bookings[selectedDateStr]["_system_alert_evicted_"];
 
@@ -649,6 +628,10 @@
                 if (Object.keys(updatedDb.bookings[selectedDateStr]).filter(k => !k.startsWith('_')).length === 0) {
                     delete updatedDb.bookings[selectedDateStr];
                 }
+                
+                // ТУТ ВИПРАВЛЕНО: Скидаємо селектор вибору у дефолтний стан
+                document.getElementById('workFormatSelect').value = 'none';
+                
                 syncPut(updatedDb);
             }
         }
@@ -688,7 +671,7 @@
             allDates.forEach(dateStr => {
                 const users = db.bookings[dateStr] || {};
                 Object.keys(users).forEach(user => {
-                    if (user.startsWith('_')) return; // ігноруємо системні прапорці в адмінці
+                    if (user.startsWith('_')) return; 
                     const info = users[user];
                     const archRow = document.createElement('tr');
                     archRow.innerHTML = `
