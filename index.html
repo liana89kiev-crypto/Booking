@@ -53,14 +53,16 @@
         .day-card.active { border-color: var(--blue); background: var(--blue-light); }
         .day-card .date-sub { font-size: 12px; color: #6b7280; }
 
-        /* Схема офісу (Суцільний ряд: Вікно -> 1 -> 2 -> 3 -> 4 -> Коридор) */
-        .office-map-container { background: var(--gray-light); padding: 20px; border-radius: 8px; margin-top: 15px; }
+        /* Схема офісу (Два паралельні ряди від Вікна до Коридору) */
+        .office-map-container { background: var(--gray-light); padding: 25px; border-radius: 8px; margin-top: 15px; }
         
-        .map-labels { display: flex; justify-content: space-between; max-width: 650px; margin: 0 auto 8px auto; font-size: 12px; font-weight: bold; color: #6b7280; padding: 0 10px; }
+        .map-wrapper { max-width: 650px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; border: 2px solid var(--blue); position: relative; }
         
-        .row-scheme { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; max-width: 650px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; border: 2px solid var(--blue); }
+        .map-labels { display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; color: #6b7280; margin-bottom: 15px; border-bottom: 1px dashed var(--gray-border); padding-bottom: 8px; }
         
-        .section-title { text-align: center; font-size: 13px; font-weight: bold; color: #4b5563; margin-top: 15px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+        .row-scheme { display: grid; gap: 12px; margin-bottom: 20px; }
+        
+        .section-title { font-size: 13px; font-weight: bold; color: #4b5563; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
 
         .seat { padding: 12px; border-radius: 6px; text-align: center; font-weight: bold; font-size: 13px; cursor: pointer; border: 1px solid var(--gray-border); transition: all 0.2s; background: var(--green); color: white; display: flex; flex-direction: column; justify-content: center; min-height: 60px; }
         .seat:hover:not(.taken):not(.disabled) { background: var(--green-hover); }
@@ -150,23 +152,23 @@
 
                 <!-- Схема офісу -->
                 <div id="officeMapSection" class="hidden office-map-container">
-                    <h4 style="text-align:center; margin-bottom:15px;">Схема робочих місць</h4>
-                    
-                    <div class="map-labels">
-                        <span>🪟 ВІКНО</span>
-                        <span>КОРИДОР 🚪</span>
-                    </div>
+                    <div class="map-wrapper">
+                        <div class="map-labels">
+                            <span>🪟 ВІКНО</span>
+                            <span>КОРИДОР 🚪</span>
+                        </div>
 
-                    <!-- Зона керівників -->
-                    <div class="section-title">Місця Керівників</div>
-                    <div class="row-scheme" id="managerSeatsRow" style="grid-template-columns: repeat(3, 1fr); max-width: 480px;">
-                        <!-- Сюди стають 3 місця керівників -->
-                    </div>
+                        <!-- Ряд керівників -->
+                        <div class="section-title">Ряд Керівників (3 столи)</div>
+                        <div class="row-scheme" id="managerSeatsRow" style="grid-template-columns: repeat(3, 1fr);">
+                            <!-- Місця керівників -->
+                        </div>
 
-                    <!-- Зона співробітників -->
-                    <div class="section-title" style="margin-top:25px;">Місця Співробітників</div>
-                    <div class="row-scheme" id="employeeSeatsRow">
-                        <!-- Сюди стають 4 місця в ряд від вікна до коридору -->
+                        <!-- Ряд співробітників -->
+                        <div class="section-title" style="margin-top:25px;">Ряд Співробітників (4 столи)</div>
+                        <div class="row-scheme" id="employeeSeatsRow" style="grid-template-columns: repeat(4, 1fr);">
+                            <!-- Місця співробітників -->
+                        </div>
                     </div>
                 </div>
                 
@@ -181,7 +183,7 @@
             <h2>Адмін-панель</h2>
             <div class="flex-tabs">
                 <div class="tab active" id="tab1" onclick="switchAdminTab(1)">Поточні броні (Тиждень)</div>
-                <div class="tab" id="tab2" onclick="switchAdminTab(2)">Archive (Всі дані)</div>
+                <div class="tab" id="tab2" onclick="switchAdminTab(2)">Архів (Всі дані)</div>
             </div>
 
             <div id="adminTabContent1">
@@ -223,7 +225,7 @@
         // --- КОНФІГУРАЦІЯ ---
         const API_KEY = '$2a$10$sob4JoxEjCWHuzxWpPEZkuH29lhni9FEMn6ThLwGaKcbuheV4duoe';
         const BIN_ID = '6a54b6f5da38895dfe55ec69'; 
-        const REFRESH_INTERVAL = 60000; // Збільшено до 60 секунд (1 хвилина), щоб система не оновлювалась занадто часто!
+        const REFRESH_INTERVAL = 60000; // 1 хвилина
 
         // Ролі та люди
         const MANAGERS = ['Леопард', 'Пантера', 'Тигр'];
@@ -236,7 +238,7 @@
             'Тигр': 'Стіл К3 (Коридор)'
         };
 
-        // Послідовний ряд співробітників від вікна до коридору
+        // Ряд співробітників від вікна до коридору
         const EMPLOYEE_SEATS = [
             { id: 'E1', name: 'Місце 1' },
             { id: 'E2', name: 'Місце 2' },
@@ -470,7 +472,7 @@
             }
         }
 
-        // --- ГЕНЕРАЦІЯ КАРТИ ОФІСУ В ОДИН РЯД ---
+        // --- ГЕНЕРАЦІЯ КАРТИ ОФІСУ В ДВА РЯДИ ---
         function renderOfficeMap() {
             const managersRow = document.getElementById('managerSeatsRow');
             const employeesRow = document.getElementById('employeeSeatsRow');
@@ -481,7 +483,7 @@
             const dayBookings = db.bookings[selectedDateStr] || {};
             let managersSeatsStatus = {};
 
-            // 1. Обчислюємо статус місць керівників
+            // 1. Статус місць керівників
             MANAGERS.forEach(m => {
                 const b = dayBookings[m];
                 const fixedSeatName = MANAGER_SEATS[m];
@@ -492,7 +494,7 @@
                 }
             });
 
-            // Малюємо керівників
+            // Рендер керівників
             MANAGERS.forEach(m => {
                 const seatName = MANAGER_SEATS[m];
                 const status = managersSeatsStatus[seatName];
@@ -526,7 +528,7 @@
                 managersRow.appendChild(seatEl);
             });
 
-            // 2. Малюємо співробітників суцільним рядом (Місце 1 -> Місце 4)
+            // 2. Рендер співробітників
             EMPLOYEE_SEATS.forEach(seat => {
                 const seatEl = document.createElement('div');
                 seatEl.className = 'seat';
