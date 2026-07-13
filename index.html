@@ -464,6 +464,11 @@
 
         function handleFormatChange() {
             const format = document.getElementById('workFormatSelect').value;
+            if (format === 'none') {
+                document.getElementById('officeMapSection').classList.add('hidden');
+                return;
+            }
+
             let updatedDb = JSON.parse(JSON.stringify(db));
             if (!updatedDb.bookings[selectedDateStr]) updatedDb.bookings[selectedDateStr] = {};
             const dayBookings = updatedDb.bookings[selectedDateStr];
@@ -500,15 +505,15 @@
                     syncPut(updatedDb);
                     return;
                 }
-                refreshDayView();
+                // Для співробітників просто показуємо карту для вибору столу
+                document.getElementById('officeMapSection').classList.remove('hidden');
+                renderOfficeMap();
             } else if (format === 'remote') {
                 if (dayBookings["_system_alert_moved_"] && dayBookings["_system_alert_moved_"].user === currentUser) delete dayBookings["_system_alert_moved_"];
                 if (dayBookings["_system_alert_evicted_"] && dayBookings["_system_alert_evicted_"].user === currentUser) delete dayBookings["_system_alert_evicted_"];
                 
                 dayBookings[currentUser] = { format: 'remote', seat: null };
                 syncPut(updatedDb);
-            } else {
-                document.getElementById('officeMapSection').classList.add('hidden');
             }
         }
 
@@ -619,19 +624,34 @@
         function cancelCurrentBooking() {
             if (!selectedDateStr || !currentUser) return;
             let updatedDb = JSON.parse(JSON.stringify(db));
+            
             if (updatedDb.bookings[selectedDateStr] && updatedDb.bookings[selectedDateStr][currentUser]) {
+                // Видаляємо поточного користувача повністю з цієї дати
                 delete updatedDb.bookings[selectedDateStr][currentUser];
                 
+                // Видаляємо алерти, пов'язані з ним
                 if (updatedDb.bookings[selectedDateStr]["_system_alert_moved_"]?.user === currentUser) delete updatedDb.bookings[selectedDateStr]["_system_alert_moved_"];
                 if (updatedDb.bookings[selectedDateStr]["_system_alert_evicted_"]?.user === currentUser) delete updatedDb.bookings[selectedDateStr]["_system_alert_evicted_"];
 
+                // Якщо день став зовсім пустим, прибираємо його
                 if (Object.keys(updatedDb.bookings[selectedDateStr]).filter(k => !k.startsWith('_')).length === 0) {
                     delete updatedDb.bookings[selectedDateStr];
                 }
                 
-                // ТУТ ВИПРАВЛЕНО: Скидаємо селектор вибору у дефолтний стан
+                // Скидаємо глобальний об'єкт бази даних локально, щоб інтерфейс оновився миттєво
+                db = updatedDb;
+
+                // Скидаємо випадаючий список у значення за замовчуванням
                 document.getElementById('workFormatSelect').value = 'none';
                 
+                // Ховаємо секцію карти офісу
+                document.getElementById('officeMapSection').classList.add('hidden');
+                document.getElementById('mapAlertBox').classList.add('hidden');
+
+                // Оновлюємо календарик тижня (щоб зняти кольорову плашку)
+                renderDaysGrid();
+
+                // Відправляємо чисті дані на сервер
                 syncPut(updatedDb);
             }
         }
@@ -712,6 +732,7 @@
             el.innerText = msg; el.style.color = isError ? "var(--red)" : "#6b7280";
         }
 
+        /* ЕКСПОРТ */
         function exportArchive() {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
             const downloadAnchor = document.createElement('a');
