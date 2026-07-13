@@ -67,6 +67,11 @@
         .seat.disabled { background: var(--gray-light); color: #9ca3af; border-style: dashed; cursor: not-allowed; }
         .seat.my-booking { background: var(--blue) !important; color: white !important; }
 
+        /* Попередження та сповіщення */
+        .alert-box { max-width: 650px; margin: 10px auto; padding: 12px; border-radius: 6px; font-weight: bold; font-size: 14px; text-align: center; line-height: 1.4; }
+        .alert-danger { background: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
+        .alert-warning { background: #feecdc; color: #b43403; border: 1px solid #fdbb93; }
+
         /* Блок віддалених співробітників */
         .remote-info-box { max-width: 650px; margin: 15px auto 0 auto; background: #edf2f7; padding: 15px; border-radius: 8px; border-left: 4px solid #4a5568; font-size: 14px; }
 
@@ -149,6 +154,9 @@
                     </select>
                 </div>
 
+                <!-- Блок для динамічних сповіщень про автопересадку або виселення -->
+                <div id="mapAlertBox" class="alert-box hidden"></div>
+
                 <!-- Схема офісу -->
                 <div id="officeMapSection" class="hidden office-map-container">
                     <div class="map-wrapper" id="tablesMapWrapper">
@@ -182,7 +190,7 @@
             </div>
         </div>
 
-        <!-- Адмін-панель -->
+        <!-- Admin Panel -->
         <div id="adminScreen" class="hidden" style="margin-top:30px; border-top: 3px solid var(--blue); padding-top:20px;">
             <h2>Адмін-панель</h2>
             <div class="flex-tabs">
@@ -230,20 +238,17 @@
         const API_KEY = '$2a$10$sob4JoxEjCWHuzxWpPEZkuH29lhni9FEMn6ThLwGaKcbuheV4duoe';
         const BIN_ID = '6a54b6f5da38895dfe55ec69'; 
         const ADMIN_PASSWORD = '2026'; 
-        const REFRESH_INTERVAL = 60000; // 1 хвилина
+        const REFRESH_INTERVAL = 60000; 
 
-        // Ролі та люди
         const MANAGERS = ['Леопард', 'Пантера', 'Тигр'];
         const EMPLOYEES = ['Кіт', 'Пес', 'Єнот', 'Лис', 'Ведмідь', 'Заєць', 'Сова'];
         
-        // Фіксовані місця керівників
         const MANAGER_SEATS = {
             'Леопард': 'Стіл К1 (Вікно)',
             'Пантера': 'Стіл К2 (Центр)',
             'Тигр': 'Стіл К3 (Коридор)'
         };
 
-        // Ряд співробітників від вікна до коридору
         const EMPLOYEE_SEATS = [
             { id: 'E1', name: 'Місце 1' },
             { id: 'E2', name: 'Місце 2' },
@@ -251,7 +256,6 @@
             { id: 'E4', name: 'Місце 4' }
         ];
 
-        // Глобальний стан
         let db = { bookings: {} }; 
         let currentUser = null;
         let currentUserRole = null; 
@@ -259,26 +263,20 @@
         let selectedDateStr = null;
         let isAdmin = false;
 
-        // Ініціалізація дат
         window.addEventListener('DOMContentLoaded', () => {
             initSync();
             setInterval(syncGet, REFRESH_INTERVAL);
             document.getElementById('adminDateFilter').value = new Date().toISOString().split('T')[0];
         });
 
-        // --- РОБОТА З ЧАСОМ (ПН-ПТ) ---
         function getWeekDates(offset = 0) {
-            let dates = [];
-            let today = new Date();
+            let dates = []; let today = new Date();
             let dayOfWeek = today.getDay(); 
             let distanceFromMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; 
             let monday = new Date(today);
             monday.setDate(today.getDate() + distanceFromMonday + (offset * 7));
-
             for (let i = 0; i < 5; i++) {
-                let nextDay = new Date(monday);
-                nextDay.setDate(monday.getDate() + i);
-                dates.push(nextDay);
+                let nextDay = new Date(monday); nextDay.setDate(monday.getDate() + i); dates.push(nextDay);
             }
             return dates;
         }
@@ -300,7 +298,6 @@
             }
         }
 
-        // --- СИНХРОНІЗАЦІЯ З JSONBIN ---
         async function initSync() {
             showSyncStatus("Завантаження даних...");
             await syncGet();
@@ -330,10 +327,7 @@
             try {
                 let res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Master-Key': API_KEY
-                    },
+                    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
                     body: JSON.stringify(newData)
                 });
                 if (res.ok) {
@@ -350,39 +344,26 @@
             }
         }
 
-        function showSyncStatus(msg, isError = false) {
-            const el = document.getElementById('syncStatus');
-            el.innerText = msg;
-            el.style.color = isError ? "var(--red)" : "#6b7280";
-        }
-
-        // --- АВТОРИЗАЦІЯ ---
         function login() {
             const user = document.getElementById('userSelect').value;
             if (!user) return alert("Будь ласка, оберіть ім'я!");
-
             currentUser = user;
             currentUserRole = MANAGERS.includes(user) ? 'manager' : 'employee';
-
             document.getElementById('currentUserName').innerText = user;
             document.getElementById('currentUserRole').innerText = currentUserRole === 'manager' ? 'Керівник' : 'Співробітник';
-
             document.getElementById('authScreen').classList.add('hidden');
             document.getElementById('mainScreen').classList.remove('hidden');
-
             currentWeekOffset = 0;
             renderDaysGrid();
         }
 
         function logout() {
-            currentUser = null;
-            currentUserRole = null;
+            currentUser = null; currentUserRole = null;
             document.getElementById('authScreen').classList.remove('hidden');
             document.getElementById('mainScreen').classList.add('hidden');
             document.getElementById('dayActionSection').classList.add('hidden');
         }
 
-        // --- ЛОГІКА ІНТЕРФЕЙСУ БРОНЮВАННЯ ---
         function changeWeek(direction) {
             if (direction === 1) {
                 let today = new Date();
@@ -391,7 +372,6 @@
             currentWeekOffset += direction;
             if (currentWeekOffset < 0) currentWeekOffset = 0;
             if (currentWeekOffset > 1) currentWeekOffset = 1;
-
             renderDaysGrid();
             document.getElementById('dayActionSection').classList.add('hidden');
             selectedDateStr = null;
@@ -401,35 +381,27 @@
             const dates = getWeekDates(currentWeekOffset);
             const grid = document.getElementById('daysGrid');
             grid.innerHTML = '';
-
             const startStr = dates[0].toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
             const endStr = dates[4].toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
             document.getElementById('weekLabel').innerText = `${startStr} — ${endStr}`;
-
             document.getElementById('prevWeekBtn').disabled = (currentWeekOffset === 0);
-
             const daysNames = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця'];
 
             dates.forEach((date, index) => {
                 const dateStr = formatDate(date);
                 const dayBookings = db.bookings[dateStr] || {};
-                
-                let userStatusText = "Немає броні";
-                let badgeClass = "";
+                let userStatusText = "Немає броні"; let badgeClass = "";
                 if (dayBookings[currentUser]) {
                     if (dayBookings[currentUser].format === 'office') {
                         userStatusText = `В офісі: ${dayBookings[currentUser].seat}`;
                         badgeClass = "badge-office";
                     } else {
-                        userStatusText = "Віддалено";
-                        badgeClass = "badge-remote";
+                        userStatusText = "Віддалено"; badgeClass = "badge-remote";
                     }
                 }
-
                 const card = document.createElement('div');
                 card.className = `day-card ${selectedDateStr === dateStr ? 'active' : ''}`;
                 card.onclick = () => selectDay(dateStr, daysNames[index], date.toLocaleDateString('uk-UA'));
-
                 card.innerHTML = `
                     <div style="font-weight:bold;">${daysNames[index]}</div>
                     <div class="date-sub">${date.toLocaleDateString('uk-UA')}</div>
@@ -459,7 +431,9 @@
                 document.getElementById('cancelBookingBtn').classList.add('hidden');
             }
 
-            // Завжди показуємо карту при змінах, щоб бачити актуальний розподіл столів
+            // Перевіряємо, чи немає глобальних системних сповіщень про авторокіровку на цей день
+            checkGlobalAlertsForDay();
+
             const format = document.getElementById('workFormatSelect').value;
             const mapSection = document.getElementById('officeMapSection');
             if (format !== 'none') {
@@ -470,64 +444,140 @@
             }
         }
 
+        function checkGlobalAlertsForDay() {
+            const dayBookings = db.bookings[selectedDateStr] || {};
+            const alertBox = document.getElementById('mapAlertBox');
+            
+            // Якщо в базі записано прапорець виселеного користувача на цю дату
+            if (dayBookings["_system_alert_evicted_"] && dayBookings["_system_alert_evicted_"].date === selectedDateStr) {
+                alertBox.innerText = `⚠️ Увага! Співробітника ${dayBookings["_system_alert_evicted_"].user} було автоматично знято з місця керівника, оскільки керівник повернувся в офіс, а інших вільних столів не залишилося.`;
+                alertBox.className = "alert-box alert-danger";
+                alertBox.classList.remove('hidden');
+            } else if (dayBookings["_system_alert_moved_"] && dayBookings["_system_alert_moved_"].date === selectedDateStr) {
+                alertBox.innerText = `ℹ️ Інфо: Співробітника ${dayBookings["_system_alert_moved_"].user} було автоматично пересаджено на "${dayBookings["_system_alert_moved_"].newSeat}", оскільки керівник повернувся на своє рідне місце.`;
+                alertBox.className = "alert-box alert-warning";
+                alertBox.classList.remove('hidden');
+            } else {
+                alertBox.classList.add('hidden');
+            }
+        }
+
         function handleFormatChange() {
             const format = document.getElementById('workFormatSelect').value;
-            
+            let updatedDb = JSON.parse(JSON.stringify(db));
+            if (!updatedDb.bookings[selectedDateStr]) updatedDb.bookings[selectedDateStr] = {};
+            const dayBookings = updatedDb.bookings[selectedDateStr];
+
             if (format === 'office') {
-                // Якщо користувач переключився з віддалено на офіс, просто відкриваємо карту для вибору столу
+                if (currentUserRole === 'manager') {
+                    const originalSeat = MANAGER_SEATS[currentUser];
+                    
+                    // Перевіряємо, чи зайняв це місце керівника якийсь співробітник
+                    const luckyEmployee = Object.keys(dayBookings).find(k => dayBookings[k].seat === originalSeat && EMPLOYEES.includes(k));
+                    
+                    if (luckyEmployee) {
+                        // Рокіровка! Шукаємо співробітнику інше абсолютно вільне місце в усьому офісі
+                        let busySeats = Object.values(dayBookings).map(b => b.seat);
+                        
+                        // Масив усіх потенційних 7 місць в офісі (4 співробітницькі + 3 керівні)
+                        let allAvailableOfficeSeats = [...EMPLOYEE_SEATS.map(s => s.name)];
+                        MANAGERS.forEach(m => {
+                            // Додаємо столи інших керівників, ТІЛЬКИ якщо вони зараз обрали remote
+                            if (dayBookings[m] && dayBookings[m].format === 'remote') {
+                                allAvailableOfficeSeats.push(MANAGER_SEATS[m]);
+                            }
+                        });
+
+                        // Знаходимо столи, на яких фізично зараз нікого немає
+                        let freeSeats = allAvailableOfficeSeats.filter(s => !busySeats.includes(s) && s !== originalSeat);
+
+                        if (freeSeats.length > 0) {
+                            // Автоматично пересаджуємо співробітника на перший ліпший вільний стіл
+                            const newSeatForEmployee = freeSeats[0];
+                            dayBookings[luckyEmployee] = { format: 'office', seat: newSeatForEmployee };
+                            
+                            // Записуємо інформаційний алерт
+                            dayBookings["_system_alert_moved_"] = { date: selectedDateStr, user: luckyEmployee, newSeat: newSeatForEmployee };
+                            delete dayBookings["_system_alert_evicted_"];
+                        } else {
+                            // Вільних місць взагалі немає — виселяємо співробітника в статус "Немає броні"
+                            delete dayBookings[luckyEmployee];
+                            
+                            // Записуємо червоне попередження про виселення
+                            dayBookings["_system_alert_evicted_"] = { date: selectedDateStr, user: luckyEmployee };
+                            delete dayBookings["_system_alert_moved_"];
+                        }
+                    }
+
+                    // Керівник гарантовано сідає на своє рідне місце
+                    dayBookings[currentUser] = { format: 'office', seat: originalSeat };
+                    syncPut(updatedDb);
+                    return;
+                }
                 refreshDayView();
             } else if (format === 'remote') {
-                // Користувач перемкнувся на віддалено — зберігаємо віддалений режим (старий стіл автоматично звільниться)
-                saveBooking('remote', null);
+                // Якщо користувач йде на remote, видаляємо застарілі системні сповіщення про його пересадки
+                if (dayBookings["_system_alert_moved_"] && dayBookings["_system_alert_moved_"].user === currentUser) delete dayBookings["_system_alert_moved_"];
+                if (dayBookings["_system_alert_evicted_"] && dayBookings["_system_alert_evicted_"].user === currentUser) delete dayBookings["_system_alert_evicted_"];
+                
+                dayBookings[currentUser] = { format: 'remote', seat: null };
+                syncPut(updatedDb);
             } else {
                 document.getElementById('officeMapSection').classList.add('hidden');
             }
         }
 
-        // --- ГЕНЕРАЦІЯ КАРТИ ОФІСУ В ДВА РЯДИ ---
+        // --- ГЕНЕРАЦІЯ КАРТИ ОФІСУ ---
         function renderOfficeMap() {
             const managersRow = document.getElementById('managerSeatsRow');
             const employeesRow = document.getElementById('employeeSeatsRow');
             const remoteUsersList = document.getElementById('remoteUsersList');
             const tablesMapWrapper = document.getElementById('tablesMapWrapper');
             
-            managersRow.innerHTML = '';
-            employeesRow.innerHTML = '';
+            managersRow.innerHTML = ''; employeesRow.innerHTML = '';
 
             const dayBookings = db.bookings[selectedDateStr] || {};
-            let managersSeatsStatus = {};
-            let remoteUsers = [];
+            let managersSeatsStatus = {}; let remoteUsers = [];
 
-            // Збираємо список тих, хто сьогодні віддалено
             Object.keys(dayBookings).forEach(u => {
-                if (dayBookings[u].format === 'remote') {
-                    remoteUsers.push(u);
-                }
+                if (dayBookings[u].format === 'remote' && !u.startsWith('_')) remoteUsers.push(u);
             });
             remoteUsersList.innerText = remoteUsers.length > 0 ? remoteUsers.join(', ') : 'немає';
 
-            // Схема столів тепер ЗАВЖДИ видима, щоб бачити вільні опції
             tablesMapWrapper.style.display = 'block';
 
-            // 1. Статус місць керівників
+            // Базовий розподіл столів керівників
             MANAGERS.forEach(m => {
                 const b = dayBookings[m];
                 const fixedSeatName = MANAGER_SEATS[m];
-                if (!b || b.format === 'office') {
+                
+                if (b && b.format === 'office') {
                     managersSeatsStatus[fixedSeatName] = { taken: true, by: m };
-                } else if (b.format === 'remote') {
+                } else if (b && b.format === 'remote') {
                     managersSeatsStatus[fixedSeatName] = { taken: false, by: null };
+                } else {
+                    managersSeatsStatus[fixedSeatName] = { taken: true, by: m };
                 }
             });
 
-            // Рендер керівників
+            // Малюємо керівні столи
             MANAGERS.forEach(m => {
                 const seatName = MANAGER_SEATS[m];
                 const status = managersSeatsStatus[seatName];
                 const seatEl = document.createElement('div');
                 seatEl.className = 'seat';
 
-                if (status.taken) {
+                let actualOccupiedBy = Object.keys(dayBookings).find(k => dayBookings[k].seat === seatName && dayBookings[k].format === 'office');
+
+                if (actualOccupiedBy) {
+                    seatEl.classList.add('taken');
+                    if (currentUser === actualOccupiedBy) {
+                        seatEl.classList.add('my-booking');
+                        seatEl.innerHTML = `${seatName} <span>Ваша бронь</span>`;
+                    } else {
+                        seatEl.innerHTML = `${seatName} <span>Зайнято: ${actualOccupiedBy}</span>`;
+                    }
+                } else if (status.taken) {
                     seatEl.classList.add('taken');
                     if (currentUser === status.by) {
                         seatEl.classList.add('my-booking');
@@ -536,68 +586,52 @@
                         seatEl.innerHTML = `${seatName} <span>Зайнято: ${status.by}</span>`;
                     }
                 } else {
-                    let occupiedByEmployee = Object.keys(dayBookings).find(k => dayBookings[k].seat === seatName);
-                    if (occupiedByEmployee) {
-                        seatEl.classList.add('taken');
-                        if (currentUser === occupiedByEmployee) seatEl.classList.add('my-booking');
-                        seatEl.innerHTML = `${seatName} <span>Зайнято: ${occupiedByEmployee}</span>`;
+                    if (currentUserRole === 'employee') {
+                        seatEl.innerHTML = `${seatName} <br>(Вільне К)`;
+                        seatEl.onclick = () => saveBooking('office', seatName);
                     } else {
-                        if (currentUserRole === 'employee') {
-                            seatEl.innerHTML = `${seatName} <br>(Вільне К)`;
-                            seatEl.onclick = () => selectSeat(seatName);
-                        } else {
-                            seatEl.classList.add('disabled');
-                            seatEl.innerHTML = `${seatName} <span>Порожнє</span>`;
-                        }
+                        seatEl.classList.add('disabled');
+                        seatEl.innerHTML = `${seatName} <span>Вільне К</span>`;
                     }
                 }
                 managersRow.appendChild(seatEl);
             });
 
-            // 2. Рендер співробітників
+            // Малюємо співробітницькі столи
             EMPLOYEE_SEATS.forEach(seat => {
                 const seatEl = document.createElement('div');
                 seatEl.className = 'seat';
-                let occupiedBy = Object.keys(dayBookings).find(k => dayBookings[k].seat === seat.name);
+                let occupiedBy = Object.keys(dayBookings).find(k => dayBookings[k].seat === seat.name && dayBookings[k].format === 'office');
 
-                if (currentUserRole === 'manager') {
-                    seatEl.classList.add('disabled');
-                    if (occupiedBy) {
-                        seatEl.innerHTML = `${seat.name} <span>${occupiedBy}</span>`;
+                if (occupiedBy) {
+                    seatEl.classList.add('taken');
+                    if (currentUser === occupiedBy) {
+                        seatEl.classList.add('my-booking');
+                        seatEl.innerHTML = `${seat.name} <span>Ваше місце</span>`;
                     } else {
-                        seatEl.innerHTML = `${seat.name} <span>Співроб.</span>`;
+                        seatEl.innerHTML = `${seat.name} <span>Зайнято: ${occupiedBy}</span>`;
                     }
                 } else {
-                    if (occupiedBy) {
-                        seatEl.classList.add('taken');
-                        if (currentUser === occupiedBy) {
-                            seatEl.classList.add('my-booking');
-                            seatEl.innerHTML = `${seat.name} <span>Ваше місце</span>`;
-                            seatEl.onclick = () => selectSeat(seat.name);
-                        } else {
-                            seatEl.innerHTML = `${seat.name} <span>Зайнято: ${occupiedBy}</span>`;
-                        }
-                    } else {
+                    if (currentUserRole === 'employee') {
                         seatEl.innerHTML = seat.name;
-                        seatEl.onclick = () => selectSeat(seat.name);
+                        seatEl.onclick = () => saveBooking('office', seat.name);
+                    } else {
+                        // Керівники за замовчуванням мають свої столи, але якщо керівника виселили, він може сісти сюди
+                        seatEl.innerHTML = seat.name;
+                        seatEl.onclick = () => saveBooking('office', seat.name);
                     }
                 }
                 employeesRow.appendChild(seatEl);
             });
         }
 
-        function selectSeat(seatName) {
-            if (currentUserRole === 'manager') return;
-            saveBooking('office', seatName);
-        }
-
         function saveBooking(format, seatName) {
             let updatedDb = JSON.parse(JSON.stringify(db));
             if (!updatedDb.bookings[selectedDateStr]) updatedDb.bookings[selectedDateStr] = {};
-
-            if (currentUserRole === 'manager' && format === 'office') {
-                seatName = MANAGER_SEATS[currentUser];
-            }
+            
+            // Якщо співробітник обирає нове місце самостійно, чистимо старі системні сповіщення про автопересадки для нього
+            if (updatedDb.bookings[selectedDateStr]["_system_alert_moved_"]?.user === currentUser) delete updatedDb.bookings[selectedDateStr]["_system_alert_moved_"];
+            if (updatedDb.bookings[selectedDateStr]["_system_alert_evicted_"]?.user === currentUser) delete updatedDb.bookings[selectedDateStr]["_system_alert_evicted_"];
 
             updatedDb.bookings[selectedDateStr][currentUser] = { format: format, seat: seatName };
             syncPut(updatedDb);
@@ -608,7 +642,13 @@
             let updatedDb = JSON.parse(JSON.stringify(db));
             if (updatedDb.bookings[selectedDateStr] && updatedDb.bookings[selectedDateStr][currentUser]) {
                 delete updatedDb.bookings[selectedDateStr][currentUser];
-                if (Object.keys(updatedDb.bookings[selectedDateStr]).length === 0) delete updatedDb.bookings[selectedDateStr];
+                
+                if (updatedDb.bookings[selectedDateStr]["_system_alert_moved_"]?.user === currentUser) delete updatedDb.bookings[selectedDateStr]["_system_alert_moved_"];
+                if (updatedDb.bookings[selectedDateStr]["_system_alert_evicted_"]?.user === currentUser) delete updatedDb.bookings[selectedDateStr]["_system_alert_evicted_"];
+
+                if (Object.keys(updatedDb.bookings[selectedDateStr]).filter(k => !k.startsWith('_')).length === 0) {
+                    delete updatedDb.bookings[selectedDateStr];
+                }
                 syncPut(updatedDb);
             }
         }
@@ -622,12 +662,9 @@
                     document.getElementById('adminScreen').classList.remove('hidden');
                     document.getElementById('adminToggleBtn').innerText = "Закрити Адмін Panel";
                     renderAdminData();
-                } else {
-                    alert("Невірний пароль!");
-                }
+                } else { alert("Невірний пароль!"); }
             } else {
-                isAdmin = false;
-                document.getElementById('adminScreen').classList.add('hidden');
+                isAdmin = false; document.getElementById('adminScreen').classList.add('hidden');
                 document.getElementById('adminToggleBtn').innerText = "Адмін Panel";
             }
         }
@@ -643,8 +680,7 @@
         function renderAdminData() {
             const liveBody = document.getElementById('adminLiveBookings');
             const archiveBody = document.getElementById('adminArchiveBookings');
-            liveBody.innerHTML = '';
-            archiveBody.innerHTML = '';
+            liveBody.innerHTML = ''; archiveBody.innerHTML = '';
 
             const filterDate = document.getElementById('adminDateFilter').value;
             const allDates = Object.keys(db.bookings).sort((a,b) => new Date(b) - new Date(a));
@@ -652,6 +688,7 @@
             allDates.forEach(dateStr => {
                 const users = db.bookings[dateStr] || {};
                 Object.keys(users).forEach(user => {
+                    if (user.startsWith('_')) return; // ігноруємо системні прапорці в адмінці
                     const info = users[user];
                     const archRow = document.createElement('tr');
                     archRow.innerHTML = `
@@ -681,21 +718,23 @@
                 let updatedDb = JSON.parse(JSON.stringify(db));
                 if (updatedDb.bookings[dateStr]) {
                     delete updatedDb.bookings[dateStr][user];
-                    if (Object.keys(updatedDb.bookings[dateStr]).length === 0) delete updatedDb.bookings[dateStr];
+                    if (Object.keys(updatedDb.bookings[dateStr]).filter(k => !k.startsWith('_')).length === 0) delete updatedDb.bookings[dateStr];
                     syncPut(updatedDb);
                 }
             }
         }
 
-        // --- ЕКСПОРТ АРХІВУ ---
+        function showSyncStatus(msg, isError = false) {
+            const el = document.getElementById('syncStatus');
+            el.innerText = msg; el.style.color = isError ? "var(--red)" : "#6b7280";
+        }
+
         function exportArchive() {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
             const downloadAnchor = document.createElement('a');
             downloadAnchor.setAttribute("href", dataStr);
             downloadAnchor.setAttribute("download", `booking_archive_${new Date().toISOString().split('T')[0]}.json`);
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.remove();
+            document.body.appendChild(downloadAnchor); downloadAnchor.click(); downloadAnchor.remove();
         }
     </script>
 </body>
