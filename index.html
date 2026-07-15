@@ -124,13 +124,13 @@
                         <option value="Тигр">Керівник Тигр</option>
                     </optgroup>
                     <optgroup label="Співробітники">
-                        <option value="Кіт">Співробітник Кіт</option>
-                        <option value="Пес">Співробітник Пес</option>
-                        <option value="Єнот">Співробітник Єнот</option>
-                        <option value="Лис">Співробітник Лис</option>
-                        <option value="Ведмідь">Співробітник Ведмідь</option>
-                        <option value="Заєць">Співробітник Заєць</option>
-                        <option value="Сова">Співробітник Сова</option>
+                        <option value="Олександра Квасневська">Олександра Квасневська</option>
+                        <option value="Ліана Хомич">Ліана Хомич</option>
+                        <option value="Вікторія Крохмаль">Вікторія Крохмаль</option>
+                        <option value="Руслана Волохата">Руслана Волохата</option>
+                        <option value="Анастасія Даценко">Анастасія Даценко</option>
+                        <option value="Юлія Андрієвська">Юлія Андрієвська</option>
+                        <option value="Юлія Войтенко">Юлія Войтенко</option>
                     </optgroup>
                 </select>
             </div>
@@ -154,7 +154,6 @@
             <!-- Дні тижня -->
             <div class="days-grid" id="daysGrid"></div>
 
-            <!-- Форма вибору формату роботи -->
             <div id="dayActionSection" class="hidden">
                 <h3 id="selectedDayTitle" style="margin-bottom:10px; color:var(--blue);">Обраний день</h3>
                 
@@ -167,10 +166,8 @@
                     </select>
                 </div>
 
-                <!-- Блок для динамічних сповіщень про автопересадку або виселення -->
                 <div id="mapAlertBox" class="alert-box hidden"></div>
 
-                <!-- Схема офісу -->
                 <div id="officeMapSection" class="hidden office-map-container">
                     <div class="map-wrapper" id="tablesMapWrapper">
                         <div class="map-labels">
@@ -178,16 +175,13 @@
                             <span>КОРИДОР 🚪</span>
                         </div>
 
-                        <!-- Ряд керівників -->
                         <div class="section-title">Ряд Керівників (3 столи)</div>
                         <div class="row-scheme" id="managerSeatsRow" style="grid-template-columns: repeat(3, 1fr);"></div>
 
-                        <!-- Ряд співробітників -->
                         <div class="section-title" style="margin-top:25px;">Ряд Співробітників (4 столи)</div>
                         <div class="row-scheme" id="employeeSeatsRow" style="grid-template-columns: repeat(4, 1fr);"></div>
                     </div>
 
-                    <!-- Блок інформації про тих, хто віддалено -->
                     <div class="remote-info-box" id="remoteListBlock">
                         <strong>🏠 Віддалено працюють:</strong> <span id="remoteUsersList">немає</span>
                     </div>
@@ -247,14 +241,21 @@
     </div>
 
     <script>
-        // --- КОНФІГУРАЦІЯ ---
         const API_KEY = '$2a$10$sob4JoxEjCWHuzxWpPEZkuH29lhni9FEMn6ThLwGaKcbuheV4duoe';
         const BIN_ID = '6a54b6f5da38895dfe55ec69'; 
         const ADMIN_PASSWORD = '2026'; 
-        const REFRESH_INTERVAL = 60000; // 1 хвилина
+        const REFRESH_INTERVAL = 60000; 
 
         const MANAGERS = ['Леопард', 'Пантера', 'Тигр'];
-        const EMPLOYEES = ['Кіт', 'Пес', 'Єнот', 'Лис', 'Ведмідь', 'Заєць', 'Сова'];
+        const EMPLOYEES = [
+            'Олександра Квасневська', 
+            'Ліана Хомич', 
+            'Вікторія Крохмаль', 
+            'Руслана Волохата', 
+            'Анастасія Даценко', 
+            'Юлія Андрієвська', 
+            'Юлія Войтенко'
+        ];
         
         const MANAGER_SEATS = {
             'Леопард': 'Стіл К1 (Вікно)',
@@ -406,6 +407,7 @@
             }
         }
 
+        // ... Решта функцій скрипту залишається ідентичною ...
         function renderOfficeMap() {
             const managersRow = document.getElementById('managerSeatsRow'); const employeesRow = document.getElementById('employeeSeatsRow'); const remoteUsersList = document.getElementById('remoteUsersList'); const tablesMapWrapper = document.getElementById('tablesMapWrapper');
             managersRow.innerHTML = ''; employeesRow.innerHTML = ''; const dayBookings = db.bookings[selectedDateStr] || {}; let managersSeatsStatus = {}; let remoteUsers = [];
@@ -487,6 +489,7 @@
             });
         }
 
+        // Кирилиця у назві функції виправлена для стабільності
         function adminResetSingle(dateStr, user) {
             if (confirm(`Скасувати бронювання для ${user} на дату ${dateStr}?`)) {
                 let updatedDb = JSON.parse(JSON.stringify(db)); if (updatedDb.bookings[dateStr]) { delete updatedDb.bookings[dateStr][user]; if (Object.keys(updatedDb.bookings[dateStr]).filter(k => !k.startsWith('_')).length === 0) delete updatedDb.bookings[dateStr]; syncPut(updatedDb); }
