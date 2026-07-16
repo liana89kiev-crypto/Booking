@@ -78,7 +78,6 @@
         /* Маркери меж для мобільної версії */
         .mobile-boundary { display: none; text-align: center; font-size: 11px; font-weight: bold; color: #6b7280; padding: 6px; background: #f3f4f6; border-radius: 6px; border: 1px dashed #d1d5db; margin: 4px 0; letter-spacing: 1px; }
 
-        /* Адаптивність для мобільних пристроїв */
         @media (max-width: 768px) {
             .days-grid { flex-direction: column; }
             .day-card { min-height: auto; flex-direction: row; justify-content: space-between; padding: 12px; min-width: 100%; }
@@ -90,15 +89,13 @@
             .mobile-boundary { display: block; }
         }
 
-        /* Попередження та сповіщення */
         .alert-box { max-width: 100%; margin: 10px auto; padding: 12px; border-radius: 6px; font-weight: bold; font-size: 13px; text-align: center; line-height: 1.4; }
         .alert-danger { background: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
         .alert-warning { background: #feecdc; color: #b43403; border: 1px solid #fdbb93; }
+        .alert-info { background: #e1effe; color: #1e429f; border: 1px solid #b3d1ff; }
 
-        /* Блок віддалених співробітників */
         .remote-info-box { max-width: 100%; margin: 15px auto 0 auto; background: #edf2f7; padding: 12px; border-radius: 8px; border-left: 4px solid #4a5568; font-size: 13px; }
 
-        /* Адмінка */
         .admin-table-wrapper { overflow-x: auto; width: 100%; margin-top: 15px; }
         .admin-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 500px; }
         .admin-table th, .admin-table td { border: 1px solid var(--gray-border); padding: 8px; text-align: left; }
@@ -163,8 +160,8 @@
             <div id="dayActionSection" class="hidden">
                 <h3 id="selectedDayTitle" style="margin-bottom:10px; color:var(--blue);">Обраний день</h3>
                 
-                <!-- Інформаційне поле для часового блокування -->
-                <div id="timeLockAlert" class="alert-box alert-danger hidden"></div>
+                <!-- Повідомлення про статус доступності офісу -->
+                <div id="timeLockAlert" class="alert-box alert-info hidden"></div>
 
                 <div id="bookingFormFields">
                     <div class="form-group">
@@ -305,27 +302,27 @@
             return `${date.getFullYear()}-${m}-${d}`;
         }
 
+        // Обидва тижні тепер доступні завжди без обмежень по днях тижня
         function checkNextWeekAvailability() {
-            let today = getKyivDate(); let day = today.getDay();
-            if (day === 4 || day === 5 || day === 6 || day === 0) {
-                document.getElementById('nextWeekBtn').disabled = false; document.getElementById('nextWeekBtn').style.opacity = "1";
-            } else {
-                document.getElementById('nextWeekBtn').disabled = true; document.getElementById('nextWeekBtn').style.opacity = "0.4";
-            }
+            document.getElementById('nextWeekBtn').disabled = false; 
+            document.getElementById('nextWeekBtn').style.opacity = "1";
         }
 
-        function isTimeWindowValid(targetDateStr) {
+        // НОВА ЧАСОВА ПЕРЕВІРКА: чи відкрите бронювання ОФІСУ на вказану дату
+        function isOfficeAvailable(targetDateStr) {
             let nowKyiv = getKyivDate();
             let targetDate = new Date(targetDateStr + "T00:00:00");
 
-            let startValidTime = new Date(targetDate);
-            startValidTime.setDate(targetDate.getDate() - 1);
-            startValidTime.setHours(13, 0, 0, 0); 
+            // Бронювання офісу відкривається о 13:00 попереднього дня
+            let openTime = new Date(targetDate);
+            openTime.setDate(targetDate.getDate() - 1);
+            openTime.setHours(13, 0, 0, 0);
 
-            let endValidTime = new Date(targetDate);
-            endValidTime.setHours(9, 0, 0, 0); 
+            // Бронювання офісу закривається о 09:00 ранку цього ж дня
+            let closeTime = new Date(targetDate);
+            closeTime.setHours(9, 0, 0, 0);
 
-            return (nowKyiv >= startValidTime && nowKyiv <= endValidTime);
+            return (nowKyiv >= openTime && nowKyiv <= closeTime);
         }
 
         async function initSync() { showSyncStatus("Завантаження даних..."); await syncGet(); checkNextWeekAvailability(); }
@@ -360,7 +357,6 @@
         function logout() { currentUser = null; currentUserRole = null; document.getElementById('authScreen').classList.remove('hidden'); document.getElementById('mainScreen').classList.add('hidden'); document.getElementById('dayActionSection').classList.add('hidden'); }
 
         function changeWeek(direction) {
-            if (direction === 1) { let today = getKyivDate(); let day = today.getDay(); if (day !== 4 && day !== 5 && day !== 6 && day !== 0) return; }
             currentWeekOffset += direction; if (currentWeekOffset < 0) currentWeekOffset = 0; if (currentWeekOffset > 1) currentWeekOffset = 1;
             renderDaysGrid(); document.getElementById('dayActionSection').classList.add('hidden'); selectedDateStr = null;
         }
@@ -399,23 +395,34 @@
         function refreshDayView() {
             const dayBookings = db.bookings[selectedDateStr] || {}; const userBooking = dayBookings[currentUser]; 
             const alertBox = document.getElementById('mapAlertBox'); alertBox.classList.add('hidden'); 
-            const timeAlert = document.getElementById('timeLockAlert'); const formFields = document.getElementById('bookingFormFields');
+            const timeAlert = document.getElementById('timeLockAlert');
 
-            if (!isTimeWindowValid(selectedDateStr)) {
-                timeAlert.innerText = `🔒 Бронювання чи зміна на цей день можливі тільки за Київським часом з 13:00 попереднього дня до 09:00 ранку цього дня.`;
+            // Показуємо плашку-інфо про статус офісу
+            if (!isOfficeAvailable(selectedDateStr)) {
+                timeAlert.innerText = `ℹ️ На цей день зараз можна обрати тільки формат "Віддалено". Вибір офісу відкриється о 13:00 попереднього дня.`;
+                timeAlert.className = "alert-box alert-info";
                 timeAlert.classList.remove('hidden');
-                formFields.classList.add('hidden'); 
-                return;
             } else {
-                timeAlert.classList.add('hidden');
-                formFields.classList.remove('hidden');
+                timeAlert.innerText = `✅ Бронювання столів в офісі на цей день зараз відкрито.`;
+                timeAlert.className = "alert-box alert-warning";
+                timeAlert.classList.remove('hidden');
             }
 
-            if (userBooking) { document.getElementById('workFormatSelect').value = userBooking.format; document.getElementById('cancelBookingBtn').classList.remove('hidden'); } 
-            else { if (currentUserRole === 'manager') { document.getElementById('workFormatSelect').value = 'office'; } else { document.getElementById('workFormatSelect').value = 'none'; } document.getElementById('cancelBookingBtn').classList.add('hidden'); }
+            if (userBooking) { 
+                document.getElementById('workFormatSelect').value = userBooking.format; 
+                document.getElementById('cancelBookingBtn').classList.remove('hidden'); 
+            } else { 
+                if (currentUserRole === 'manager' && isOfficeAvailable(selectedDateStr)) { 
+                    document.getElementById('workFormatSelect').value = 'office'; 
+                } else { 
+                    document.getElementById('workFormatSelect').value = 'none'; 
+                } 
+                document.getElementById('cancelBookingBtn').classList.add('hidden'); 
+            }
+
             checkGlobalAlertsForDay();
             const format = document.getElementById('workFormatSelect').value; const mapSection = document.getElementById('officeMapSection');
-            if (format !== 'none') { mapSection.classList.remove('hidden'); renderOfficeMap(); } else { mapSection.classList.add('hidden'); }
+            if (format === 'office') { mapSection.classList.remove('hidden'); renderOfficeMap(); } else { mapSection.classList.add('hidden'); }
         }
 
         function checkGlobalAlertsForDay() {
@@ -426,7 +433,16 @@
         }
 
         function handleFormatChange() {
-            const format = document.getElementById('workFormatSelect').value; if (format === 'none') { document.getElementById('officeMapSection').classList.add('hidden'); return; }
+            const format = document.getElementById('workFormatSelect').value; 
+            if (format === 'none') { document.getElementById('officeMapSection').classList.add('hidden'); return; }
+
+            // Якщо обрали ОФІС, але часове вікно ще закрите — блокуємо дію
+            if (format === 'office' && !isOfficeAvailable(selectedDateStr)) {
+                alert("Помилка! Вибір офісу на цей день ще закритий. Наперед можна обирати тільки 'Віддалено'.");
+                document.getElementById('workFormatSelect').value = 'none';
+                return;
+            }
+
             let updatedDb = JSON.parse(JSON.stringify(db)); if (!updatedDb.bookings[selectedDateStr]) updatedDb.bookings[selectedDateStr] = {}; const dayBookings = updatedDb.bookings[selectedDateStr];
 
             if (format === 'office') {
@@ -462,7 +478,7 @@
                 else { managersSeatsStatus[fixedSeatName] = { taken: true, by: m }; }
             });
 
-            MANAGERS.forEach((m, idx) => {
+            MANAGERS.forEach((m) => {
                 const seatName = MANAGER_SEATS[m]; const status = managersSeatsStatus[seatName]; const seatEl = document.createElement('div'); seatEl.className = 'seat';
                 let actualOccupiedBy = Object.keys(dayBookings).find(k => dayBookings[k].seat === seatName && dayBookings[k].format === 'office');
                 
@@ -532,7 +548,7 @@
         }
 
         function adminResetSingle(dateStr, user) {
-            if (confirm(`Скасувати бронювання для ${user} на дату ${dateStr}?`)) {
+            if (confirm(`Скасувати拥 бронювання для ${user} на дату ${dateStr}?`)) {
                 let updatedDb = JSON.parse(JSON.stringify(db)); if (updatedDb.bookings[dateStr]) { delete updatedDb.bookings[dateStr][user]; if (Object.keys(updatedDb.bookings[dateStr]).filter(k => !k.startsWith('_')).length === 0) delete updatedDb.bookings[dateStr]; syncPut(updatedDb); }
             }
         }
