@@ -278,42 +278,29 @@
             document.getElementById('adminDateFilter').value = getKyivDate().toISOString().split('T')[0];
         });
 
-        // ФУНКЦІЯ ОТРИМАННЯ ТОЧНОГО ЧАСУ ТА ДАТИ В КИЄВІ (ІГНОРУЄ ЧАС ПРИСТРОЮ)
         function getKyivDate() {
             let localTime = new Date();
-            // Отримуємо зсув часового поясу пристрою у хвилинах і переводимо в мілісекунди
             let tzDifference = localTime.getTimezoneOffset() * 60 * 1000;
-            // Створюємо чистий час за Гринвічем (UTC+0)
             let utcTime = new Date(localTime.getTime() + tzDifference);
-            // Додаємо 3 години (Київський літній/зимовий стандартний час UTC+3)
             let kyivOffsetHours = 3;
             return new Date(utcTime.getTime() + (kyivOffsetHours * 60 * 60 * 1000));
         }
 
         function getWeekDates(offset = 0) {
-            let dates = []; 
-            let today = getKyivDate(); 
-            let dayOfWeek = today.getDay(); 
+            let dates = []; let today = getKyivDate(); let dayOfWeek = today.getDay(); 
             let distanceFromMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; 
-            let monday = new Date(today); 
-            monday.setDate(today.getDate() + distanceFromMonday + (offset * 7));
-            for (let i = 0; i < 5; i++) { 
-                let nextDay = new Date(monday); 
-                nextDay.setDate(monday.getDate() + i); 
-                dates.push(nextDay); 
-            }
+            let monday = new Date(today); monday.setDate(today.getDate() + distanceFromMonday + (offset * 7));
+            for (let i = 0; i < 5; i++) { let nextDay = new Date(monday); nextDay.setDate(monday.getDate() + i); dates.push(nextDay); }
             return dates;
         }
 
         function formatDate(date) {
-            let d = date.getDate().toString().padStart(2, '0'); 
-            let m = (date.getMonth() + 1).toString().padStart(2, '0');
+            let d = date.getDate().toString().padStart(2, '0'); let m = (date.getMonth() + 1).toString().padStart(2, '0');
             return `${date.getFullYear()}-${m}-${d}`;
         }
 
         function checkNextWeekAvailability() {
-            let today = getKyivDate(); 
-            let day = today.getDay();
+            let today = getKyivDate(); let day = today.getDay();
             if (day === 4 || day === 5 || day === 6 || day === 0) {
                 document.getElementById('nextWeekBtn').disabled = false; document.getElementById('nextWeekBtn').style.opacity = "1";
             } else {
@@ -321,17 +308,17 @@
             }
         }
 
-        // КИЇВСЬКЕ ЧАСОВЕ ВІКНО: Сьогодні з 16:00 до Завтра 09:00
+        // ТИМЧАСОВО ЗМІНЕНО ЧАСОВЕ ВІКНО: з 13:00 попереднього дня до 09:00 цього дня
         function isTimeWindowValid(targetDateStr) {
             let nowKyiv = getKyivDate();
             let targetDate = new Date(targetDateStr + "T00:00:00");
 
             let startValidTime = new Date(targetDate);
             startValidTime.setDate(targetDate.getDate() - 1);
-            startValidTime.setHours(16, 0, 0, 0); // Вчора о 16:00 за Києвом
+            startValidTime.setHours(13, 0, 0, 0); // Тимчасово о 13:00 за Києвом
 
             let endValidTime = new Date(targetDate);
-            endValidTime.setHours(9, 0, 0, 0); // Сьогодні о 09:00 за Києвом
+            endValidTime.setHours(9, 0, 0, 0); // До 09:00 за Києвом
 
             return (nowKyiv >= startValidTime && nowKyiv <= endValidTime);
         }
@@ -409,9 +396,8 @@
             const alertBox = document.getElementById('mapAlertBox'); alertBox.classList.add('hidden'); 
             const timeAlert = document.getElementById('timeLockAlert'); const formFields = document.getElementById('bookingFormFields');
 
-            // Перевіряємо залізне Київське часове обмеження
             if (!isTimeWindowValid(selectedDateStr)) {
-                timeAlert.innerText = `🔒 Бронювання чи зміна на цей день можливі тільки за Київським часом з 16:00 попереднього дня до 09:00 ранку цього дня.`;
+                timeAlert.innerText = `🔒 Бронювання чи зміна на цей день можливі тільки за Київським часом з 13:00 попереднього дня до 09:00 ранку цього дня.`;
                 timeAlert.classList.remove('hidden');
                 formFields.classList.add('hidden'); 
                 return;
