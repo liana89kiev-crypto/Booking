@@ -75,6 +75,13 @@
         .seat.disabled { background: var(--gray-light); color: #9ca3af; border-style: dashed; cursor: not-allowed; }
         .seat.my-booking { background: var(--blue) !important; color: white !important; }
 
+        /* Панель підказок */
+        .info-panel { background: #f8fafc; border: 1px solid var(--gray-border); border-radius: 8px; padding: 15px; margin-top: 25px; font-size: 13px; color: #4b5563; }
+        .info-panel h3 { font-size: 14px; color: var(--blue); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+        .info-panel ul { list-style-type: none; }
+        .info-panel li { margin-bottom: 8px; padding-left: 15px; position: relative; line-height: 1.4; }
+        .info-panel li::before { content: "•"; color: var(--blue); font-weight: bold; position: absolute; left: 0; }
+
         /* Маркери меж для мобільної версії */
         .mobile-boundary { display: none; text-align: center; font-size: 11px; font-weight: bold; color: #6b7280; padding: 6px; background: #f3f4f6; border-radius: 6px; border: 1px dashed #d1d5db; margin: 4px 0; letter-spacing: 1px; }
 
@@ -138,6 +145,19 @@
                 </select>
             </div>
             <button class="btn" style="width:100%" onclick="login()">Увійти</button>
+
+            <!-- Панель підказок на головній сторінці -->
+            <div class="info-panel">
+                <h3>💻 Як користуватися системую бронювання:</h3>
+                <ul>
+                    <li><strong>👤 Важливо про авторизацію:</strong> Будь ласка, заходьте в систему <strong>лише під своїм прізвищем та ім'ям</strong>. Не обирайте профілі колег, щоб не створювати помилкових записів.</li>
+                    <li><strong>📅 Планування на 2 тижні вперед:</strong> Ви можете у будь-який момент відкрити поточний або наступний тиждень і заздалегідь обрати формат <strong>«Віддалено 🏠»</strong> на будь-які дні.</li>
+                    <li><strong>🏢 Як забронювати місце в офісі:</strong> Оберіть потрібний день у календарі (доступ до офісу відкривається <strong>о 13:00 попереднього дня</strong>), змініть формат на <strong>«В офісі 🏢»</strong> та <strong>обов'язково клікніть по вільному зеленому столу</strong> на схемі, щоб закріпити його за собою (колір столу стане синім).</li>
+                    <li><strong>👀 Перегляд колег на сторінці:</strong> Повну інформацію про ПІБ тих, хто забронював місце, і хто працює віддалено, можна побачити прямо на сторінці — просто оберіть потрібний день у календарі, і знизу відкриється детальна карта кабінету та список віддалених співробітників.</li>
+                    <li><strong>🔄 Зміна або скасування броні:</strong> Натисніть кнопку <strong>«Скасувати вибір на цей день»</strong> — це повністю звільнить стіл для колег, і сторінка буде миттєво готова до будь-кого нового вибору.</li>
+                    <li><strong>📱 Зручність з телефона:</strong> У мобільній версії схема офісу шикується у вертикальний ряд, де чітко видно межі: від <strong>Вікна 🪟</strong> (Місце 1) до <strong>Коридору 🚪</strong> (Місце 4).</li>
+                </ul>
+            </div>
         </div>
 
         <!-- Головний екран бронювання -->
@@ -302,23 +322,19 @@
             return `${date.getFullYear()}-${m}-${d}`;
         }
 
-        // Обидва тижні тепер доступні завжди без обмежень по днях тижня
         function checkNextWeekAvailability() {
             document.getElementById('nextWeekBtn').disabled = false; 
             document.getElementById('nextWeekBtn').style.opacity = "1";
         }
 
-        // НОВА ЧАСОВА ПЕРЕВІРКА: чи відкрите бронювання ОФІСУ на вказану дату
         function isOfficeAvailable(targetDateStr) {
             let nowKyiv = getKyivDate();
             let targetDate = new Date(targetDateStr + "T00:00:00");
 
-            // Бронювання офісу відкривається о 13:00 попереднього дня
             let openTime = new Date(targetDate);
             openTime.setDate(targetDate.getDate() - 1);
             openTime.setHours(13, 0, 0, 0);
 
-            // Бронювання офісу закривається о 09:00 ранку цього ж дня
             let closeTime = new Date(targetDate);
             closeTime.setHours(9, 0, 0, 0);
 
@@ -397,7 +413,6 @@
             const alertBox = document.getElementById('mapAlertBox'); alertBox.classList.add('hidden'); 
             const timeAlert = document.getElementById('timeLockAlert');
 
-            // Показуємо плашку-інфо про статус офісу
             if (!isOfficeAvailable(selectedDateStr)) {
                 timeAlert.innerText = `ℹ️ На цей день зараз можна обрати тільки формат "Віддалено". Вибір офісу відкриється о 13:00 попереднього дня.`;
                 timeAlert.className = "alert-box alert-info";
@@ -436,7 +451,6 @@
             const format = document.getElementById('workFormatSelect').value; 
             if (format === 'none') { document.getElementById('officeMapSection').classList.add('hidden'); return; }
 
-            // Якщо обрали ОФІС, але часове вікно ще закрите — блокуємо дію
             if (format === 'office' && !isOfficeAvailable(selectedDateStr)) {
                 alert("Помилка! Вибір офісу на цей день ще закритий. Наперед можна обирати тільки 'Віддалено'.");
                 document.getElementById('workFormatSelect').value = 'none';
@@ -548,7 +562,7 @@
         }
 
         function adminResetSingle(dateStr, user) {
-            if (confirm(`Скасувати拥 бронювання для ${user} на дату ${dateStr}?`)) {
+            if (confirm(`Скасувати бронювання для ${user} на дату ${dateStr}?`)) {
                 let updatedDb = JSON.parse(JSON.stringify(db)); if (updatedDb.bookings[dateStr]) { delete updatedDb.bookings[dateStr][user]; if (Object.keys(updatedDb.bookings[dateStr]).filter(k => !k.startsWith('_')).length === 0) delete updatedDb.bookings[dateStr]; syncPut(updatedDb); }
             }
         }
