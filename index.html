@@ -290,9 +290,11 @@
             return `${date.getFullYear()}-${m}-${d}`;
         }
 
+        // ТУТ ОНОВЛЕНО ЛОГІКУ: Четвер = 4, П'ятниця = 5, Субота = 6, Неділя = 0
         function checkNextWeekAvailability() {
             let today = new Date();
-            if (today.getDay() === 5 || today.getDay() === 6 || today.getDay() === 0) {
+            let day = today.getDay();
+            if (day === 4 || day === 5 || day === 6 || day === 0) {
                 document.getElementById('nextWeekBtn').disabled = false; document.getElementById('nextWeekBtn').style.opacity = "1";
             } else {
                 document.getElementById('nextWeekBtn').disabled = true; document.getElementById('nextWeekBtn').style.opacity = "0.4";
@@ -331,7 +333,11 @@
         function logout() { currentUser = null; currentUserRole = null; document.getElementById('authScreen').classList.remove('hidden'); document.getElementById('mainScreen').classList.add('hidden'); document.getElementById('dayActionSection').classList.add('hidden'); }
 
         function changeWeek(direction) {
-            if (direction === 1) { let today = new Date(); if (today.getDay() !== 5 && today.getDay() !== 6 && today.getDay() !== 0) return; }
+            if (direction === 1) { 
+                let today = new Date(); 
+                let day = today.getDay();
+                if (day !== 4 && day !== 5 && day !== 6 && day !== 0) return; 
+            }
             currentWeekOffset += direction; if (currentWeekOffset < 0) currentWeekOffset = 0; if (currentWeekOffset > 1) currentWeekOffset = 1;
             renderDaysGrid(); document.getElementById('dayActionSection').classList.add('hidden'); selectedDateStr = null;
         }
@@ -407,7 +413,6 @@
             }
         }
 
-        // ... Решта функцій скрипту залишається ідентичною ...
         function renderOfficeMap() {
             const managersRow = document.getElementById('managerSeatsRow'); const employeesRow = document.getElementById('employeeSeatsRow'); const remoteUsersList = document.getElementById('remoteUsersList'); const tablesMapWrapper = document.getElementById('tablesMapWrapper');
             managersRow.innerHTML = ''; employeesRow.innerHTML = ''; const dayBookings = db.bookings[selectedDateStr] || {}; let managersSeatsStatus = {}; let remoteUsers = [];
@@ -489,7 +494,6 @@
             });
         }
 
-        // Кирилиця у назві функції виправлена для стабільності
         function adminResetSingle(dateStr, user) {
             if (confirm(`Скасувати бронювання для ${user} на дату ${dateStr}?`)) {
                 let updatedDb = JSON.parse(JSON.stringify(db)); if (updatedDb.bookings[dateStr]) { delete updatedDb.bookings[dateStr][user]; if (Object.keys(updatedDb.bookings[dateStr]).filter(k => !k.startsWith('_')).length === 0) delete updatedDb.bookings[dateStr]; syncPut(updatedDb); }
