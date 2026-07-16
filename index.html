@@ -47,7 +47,7 @@
         .tab { padding: 8px 16px; cursor: pointer; border-radius: 6px; font-weight: 500; font-size: 14px; }
         .tab.active { background: var(--blue); color: white; }
 
-        /* Залізобетонна адаптивна сітка дат */
+        /* Календар */
         .week-selector { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: var(--gray-light); padding: 10px; border-radius: 8px; flex-wrap: wrap; gap: 10px; }
         .days-grid { display: flex; gap: 10px; margin-bottom: 20px; width: 100%; justify-content: space-between; }
         
@@ -74,14 +74,18 @@
         .seat.taken span { font-size: 10px; display: block; color: #555; font-style: italic; }
         .seat.disabled { background: var(--gray-light); color: #9ca3af; border-style: dashed; cursor: not-allowed; }
         .seat.my-booking { background: var(--blue) !important; color: white !important; }
+        .seat .mobile-direction { display: none; font-size: 10px; font-weight: normal; opacity: 0.85; margin-top: 2px; }
 
-        /* Адаптивність для телефонів */
+        /* Адаптивність для мобільних пристроїв */
         @media (max-width: 768px) {
             .days-grid { flex-direction: column; }
             .day-card { min-height: auto; flex-direction: row; justify-content: space-between; padding: 12px; min-width: 100%; }
             .day-card .date-sub { margin-bottom: 0; margin-left: 5px; }
             .status-badge { width: auto; max-width: 60%; margin-top: 0; }
+            
             .row-scheme { grid-template-columns: 1fr !important; }
+            .seat .mobile-direction { display: block; }
+            .map-labels { display: none; }
         }
 
         /* Попередження та сповіщення */
@@ -157,38 +161,43 @@
             <div id="dayActionSection" class="hidden">
                 <h3 id="selectedDayTitle" style="margin-bottom:10px; color:var(--blue);">Обраний день</h3>
                 
-                <div class="form-group">
-                    <label>Формат роботи на цей день:</label>
-                    <select id="workFormatSelect" onchange="handleFormatChange()">
-                        <option value="none">-- Оберіть формат --</option>
-                        <option value="office">В офісі 🏢</option>
-                        <option value="remote">Віддалено 🏠</option>
-                    </select>
-                </div>
+                <!-- Інформаційне поле для часового блокування -->
+                <div id="timeLockAlert" class="alert-box alert-danger hidden"></div>
 
-                <div id="mapAlertBox" class="alert-box hidden"></div>
+                <div id="bookingFormFields">
+                    <div class="form-group">
+                        <label>Формат роботи на цей день:</label>
+                        <select id="workFormatSelect" onchange="handleFormatChange()">
+                            <option value="none">-- Оберіть формат --</option>
+                            <option value="office">В офісі 🏢</option>
+                            <option value="remote">Віддалено 🏠</option>
+                        </select>
+                    </div>
 
-                <div id="officeMapSection" class="hidden office-map-container">
-                    <div class="map-wrapper" id="tablesMapWrapper">
-                        <div class="map-labels">
-                            <span>🪟 ВІКНО</span>
-                            <span>КОРИДОР 🚪</span>
+                    <div id="mapAlertBox" class="alert-box hidden"></div>
+
+                    <div id="officeMapSection" class="hidden office-map-container">
+                        <div class="map-wrapper" id="tablesMapWrapper">
+                            <div class="map-labels">
+                                <span>🪟 ВІКНО</span>
+                                <span>КОРИДОР 🚪</span>
+                            </div>
+
+                            <div class="section-title">Ряд Керівників (3 столи)</div>
+                            <div class="row-scheme" id="managerSeatsRow" style="grid-template-columns: repeat(3, 1fr);"></div>
+
+                            <div class="section-title" style="margin-top:25px;">Ряд Співробітників (4 столи)</div>
+                            <div class="row-scheme" id="employeeSeatsRow" style="grid-template-columns: repeat(4, 1fr);"></div>
                         </div>
 
-                        <div class="section-title">Ряд Керівників (3 столи)</div>
-                        <div class="row-scheme" id="managerSeatsRow" style="grid-template-columns: repeat(3, 1fr);"></div>
-
-                        <div class="section-title" style="margin-top:25px;">Ряд Співробітників (4 столи)</div>
-                        <div class="row-scheme" id="employeeSeatsRow" style="grid-template-columns: repeat(4, 1fr);"></div>
+                        <div class="remote-info-box" id="remoteListBlock">
+                            <strong>🏠 Віддалено працюють:</strong> <span id="remoteUsersList">немає</span>
+                        </div>
                     </div>
-
-                    <div class="remote-info-box" id="remoteListBlock">
-                        <strong>🏠 Віддалено працюють:</strong> <span id="remoteUsersList">немає</span>
+                    
+                    <div style="margin-top:15px; display:flex; gap:10px;">
+                        <button class="btn btn-danger hidden" id="cancelBookingBtn" onclick="cancelCurrentBooking()">Скасувати вибір на цей день</button>
                     </div>
-                </div>
-                
-                <div style="margin-top:15px; display:flex; gap:10px;">
-                    <button class="btn btn-danger hidden" id="cancelBookingBtn" onclick="cancelCurrentBooking()">Скасувати вибір на цей день</button>
                 </div>
             </div>
         </div>
@@ -247,15 +256,7 @@
         const REFRESH_INTERVAL = 60000; 
 
         const MANAGERS = ['Леопард', 'Пантера', 'Тигр'];
-        const EMPLOYEES = [
-            'Олександра Квасневська', 
-            'Ліана Хомич', 
-            'Вікторія Крохмаль', 
-            'Руслана Волохата', 
-            'Анастасія Даценко', 
-            'Юлія Андрієвська', 
-            'Юлія Войтенко'
-        ];
+        const EMPLOYEES = ['Олександра Квасневська', 'Ліана Хомич', 'Вікторія Крохмаль', 'Руслана Волохата', 'Анастасія Даценко', 'Юлія Андрієвська', 'Юлія Войтенко'];
         
         const MANAGER_SEATS = {
             'Леопард': 'Стіл К1 (Вікно)',
@@ -264,41 +265,75 @@
         };
 
         const EMPLOYEE_SEATS = [
-            { id: 'E1', name: 'Місце 1' },
-            { id: 'E2', name: 'Місце 2' },
-            { id: 'E3', name: 'Місце 3' },
-            { id: 'E4', name: 'Місце 4' }
+            { id: 'E1', name: 'Місце 1', desc: 'ближче до вікна 🪟' },
+            { id: 'E2', name: 'Місце 2', desc: 'ряд біля вікна' },
+            { id: 'E3', name: 'Місце 3', desc: 'ряд біля коридору' },
+            { id: 'E4', name: 'Місце 4', desc: 'ближче до коридору 🚪' }
         ];
 
         let db = { bookings: {} }; let currentUser = null; let currentUserRole = null; let currentWeekOffset = 0; let selectedDateStr = null; let isAdmin = false;
 
         window.addEventListener('DOMContentLoaded', () => {
             initSync(); setInterval(syncGet, REFRESH_INTERVAL);
-            document.getElementById('adminDateFilter').value = new Date().toISOString().split('T')[0];
+            document.getElementById('adminDateFilter').value = getKyivDate().toISOString().split('T')[0];
         });
 
+        // ФУНКЦІЯ ОТРИМАННЯ ТОЧНОГО ЧАСУ ТА ДАТИ В КИЄВІ (ІГНОРУЄ ЧАС ПРИСТРОЮ)
+        function getKyivDate() {
+            let localTime = new Date();
+            // Отримуємо зсув часового поясу пристрою у хвилинах і переводимо в мілісекунди
+            let tzDifference = localTime.getTimezoneOffset() * 60 * 1000;
+            // Створюємо чистий час за Гринвічем (UTC+0)
+            let utcTime = new Date(localTime.getTime() + tzDifference);
+            // Додаємо 3 години (Київський літній/зимовий стандартний час UTC+3)
+            let kyivOffsetHours = 3;
+            return new Date(utcTime.getTime() + (kyivOffsetHours * 60 * 60 * 1000));
+        }
+
         function getWeekDates(offset = 0) {
-            let dates = []; let today = new Date(); let dayOfWeek = today.getDay(); 
+            let dates = []; 
+            let today = getKyivDate(); 
+            let dayOfWeek = today.getDay(); 
             let distanceFromMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; 
-            let monday = new Date(today); monday.setDate(today.getDate() + distanceFromMonday + (offset * 7));
-            for (let i = 0; i < 5; i++) { let nextDay = new Date(monday); nextDay.setDate(monday.getDate() + i); dates.push(nextDay); }
+            let monday = new Date(today); 
+            monday.setDate(today.getDate() + distanceFromMonday + (offset * 7));
+            for (let i = 0; i < 5; i++) { 
+                let nextDay = new Date(monday); 
+                nextDay.setDate(monday.getDate() + i); 
+                dates.push(nextDay); 
+            }
             return dates;
         }
 
         function formatDate(date) {
-            let d = date.getDate().toString().padStart(2, '0'); let m = (date.getMonth() + 1).toString().padStart(2, '0');
+            let d = date.getDate().toString().padStart(2, '0'); 
+            let m = (date.getMonth() + 1).toString().padStart(2, '0');
             return `${date.getFullYear()}-${m}-${d}`;
         }
 
-        // ТУТ ОНОВЛЕНО ЛОГІКУ: Четвер = 4, П'ятниця = 5, Субота = 6, Неділя = 0
         function checkNextWeekAvailability() {
-            let today = new Date();
+            let today = getKyivDate(); 
             let day = today.getDay();
             if (day === 4 || day === 5 || day === 6 || day === 0) {
                 document.getElementById('nextWeekBtn').disabled = false; document.getElementById('nextWeekBtn').style.opacity = "1";
             } else {
                 document.getElementById('nextWeekBtn').disabled = true; document.getElementById('nextWeekBtn').style.opacity = "0.4";
             }
+        }
+
+        // КИЇВСЬКЕ ЧАСОВЕ ВІКНО: Сьогодні з 16:00 до Завтра 09:00
+        function isTimeWindowValid(targetDateStr) {
+            let nowKyiv = getKyivDate();
+            let targetDate = new Date(targetDateStr + "T00:00:00");
+
+            let startValidTime = new Date(targetDate);
+            startValidTime.setDate(targetDate.getDate() - 1);
+            startValidTime.setHours(16, 0, 0, 0); // Вчора о 16:00 за Києвом
+
+            let endValidTime = new Date(targetDate);
+            endValidTime.setHours(9, 0, 0, 0); // Сьогодні о 09:00 за Києвом
+
+            return (nowKyiv >= startValidTime && nowKyiv <= endValidTime);
         }
 
         async function initSync() { showSyncStatus("Завантаження даних..."); await syncGet(); checkNextWeekAvailability(); }
@@ -333,11 +368,7 @@
         function logout() { currentUser = null; currentUserRole = null; document.getElementById('authScreen').classList.remove('hidden'); document.getElementById('mainScreen').classList.add('hidden'); document.getElementById('dayActionSection').classList.add('hidden'); }
 
         function changeWeek(direction) {
-            if (direction === 1) { 
-                let today = new Date(); 
-                let day = today.getDay();
-                if (day !== 4 && day !== 5 && day !== 6 && day !== 0) return; 
-            }
+            if (direction === 1) { let today = getKyivDate(); let day = today.getDay(); if (day !== 4 && day !== 5 && day !== 6 && day !== 0) return; }
             currentWeekOffset += direction; if (currentWeekOffset < 0) currentWeekOffset = 0; if (currentWeekOffset > 1) currentWeekOffset = 1;
             renderDaysGrid(); document.getElementById('dayActionSection').classList.add('hidden'); selectedDateStr = null;
         }
@@ -374,7 +405,21 @@
         function selectDay(dateStr, dayName, displayDate) { selectedDateStr = dateStr; document.getElementById('dayActionSection').classList.remove('hidden'); document.getElementById('selectedDayTitle').innerText = `${dayName} (${displayDate})`; renderDaysGrid(); refreshDayView(); }
 
         function refreshDayView() {
-            const dayBookings = db.bookings[selectedDateStr] || {}; const userBooking = dayBookings[currentUser]; const alertBox = document.getElementById('mapAlertBox'); alertBox.classList.add('hidden'); 
+            const dayBookings = db.bookings[selectedDateStr] || {}; const userBooking = dayBookings[currentUser]; 
+            const alertBox = document.getElementById('mapAlertBox'); alertBox.classList.add('hidden'); 
+            const timeAlert = document.getElementById('timeLockAlert'); const formFields = document.getElementById('bookingFormFields');
+
+            // Перевіряємо залізне Київське часове обмеження
+            if (!isTimeWindowValid(selectedDateStr)) {
+                timeAlert.innerText = `🔒 Бронювання чи зміна на цей день можливі тільки за Київським часом з 16:00 попереднього дня до 09:00 ранку цього дня.`;
+                timeAlert.classList.remove('hidden');
+                formFields.classList.add('hidden'); 
+                return;
+            } else {
+                timeAlert.classList.add('hidden');
+                formFields.classList.remove('hidden');
+            }
+
             if (userBooking) { document.getElementById('workFormatSelect').value = userBooking.format; document.getElementById('cancelBookingBtn').classList.remove('hidden'); } 
             else { if (currentUserRole === 'manager') { document.getElementById('workFormatSelect').value = 'office'; } else { document.getElementById('workFormatSelect').value = 'none'; } document.getElementById('cancelBookingBtn').classList.add('hidden'); }
             checkGlobalAlertsForDay();
@@ -426,19 +471,21 @@
                 else { managersSeatsStatus[fixedSeatName] = { taken: true, by: m }; }
             });
 
-            MANAGERS.forEach(m => {
+            MANAGERS.forEach((m, idx) => {
                 const seatName = MANAGER_SEATS[m]; const status = managersSeatsStatus[seatName]; const seatEl = document.createElement('div'); seatEl.className = 'seat';
+                let mobLoc = idx === 0 ? 'біля вікна 🪟' : (idx === 1 ? 'центр' : 'біля коридору 🚪');
                 let actualOccupiedBy = Object.keys(dayBookings).find(k => dayBookings[k].seat === seatName && dayBookings[k].format === 'office');
-                if (actualOccupiedBy) { seatEl.classList.add('taken'); if (currentUser === actualOccupiedBy) { seatEl.classList.add('my-booking'); seatEl.innerHTML = `${seatName} <span>Ваша бронь</span>`; } else { seatEl.innerHTML = `${seatName} <span>Зайнято: ${actualOccupiedBy}</span>`; } } 
-                else if (status.taken) { seatEl.classList.add('taken'); if (currentUser === status.by) { seatEl.classList.add('my-booking'); seatEl.innerHTML = `${seatName} <span>Ви (Авто)</span>`; } else { seatEl.innerHTML = `${seatName} <span>Зайнято: ${status.by}</span>`; } } 
-                else { if (currentUserRole === 'employee') { seatEl.innerHTML = `${seatName} <br>(Вільне К)`; seatEl.onclick = () => saveBooking('office', seatName); } else { seatEl.classList.add('disabled'); seatEl.innerHTML = `${seatName} <span>Вільне К</span>`; } }
+                
+                if (actualOccupiedBy) { seatEl.classList.add('taken'); if (currentUser === actualOccupiedBy) { seatEl.classList.add('my-booking'); seatEl.innerHTML = `${seatName} <span>Ваша бронь</span><span class="mobile-direction">(${mobLoc})</span>`; } else { seatEl.innerHTML = `${seatName} <span>Зайнято: ${actualOccupiedBy}</span><span class="mobile-direction">(${mobLoc})</span>`; } } 
+                else if (status.taken) { seatEl.classList.add('taken'); if (currentUser === status.by) { seatEl.classList.add('my-booking'); seatEl.innerHTML = `${seatName} <span>Ви (Авто)</span><span class="mobile-direction">(${mobLoc})</span>`; } else { seatEl.innerHTML = `${seatName} <span>Зайнято: ${status.by}</span><span class="mobile-direction">(${mobLoc})</span>`; } } 
+                else { if (currentUserRole === 'employee') { seatEl.innerHTML = `${seatName} <br>(Вільне К)<span class="mobile-direction">(${mobLoc})</span>`; seatEl.onclick = () => saveBooking('office', seatName); } else { seatEl.classList.add('disabled'); seatEl.innerHTML = `${seatName} <span>Вільне К</span><span class="mobile-direction">(${mobLoc})</span>`; } }
                 managersRow.appendChild(seatEl);
             });
 
             EMPLOYEE_SEATS.forEach(seat => {
                 const seatEl = document.createElement('div'); seatEl.className = 'seat'; let occupiedBy = Object.keys(dayBookings).find(k => dayBookings[k].seat === seat.name && dayBookings[k].format === 'office');
-                if (occupiedBy) { seatEl.classList.add('taken'); if (currentUser === occupiedBy) { seatEl.classList.add('my-booking'); seatEl.innerHTML = `${seat.name} <span>Ваше місце</span>`; } else { seatEl.innerHTML = `${seat.name} <span>Зайнято: ${occupiedBy}</span>`; } } 
-                else { if (currentUserRole === 'employee') { seatEl.innerHTML = seat.name; seatEl.onclick = () => saveBooking('office', seat.name); } else { seatEl.innerHTML = seat.name; seatEl.onclick = () => saveBooking('office', seat.name); } }
+                if (occupiedBy) { seatEl.classList.add('taken'); if (currentUser === occupiedBy) { seatEl.classList.add('my-booking'); seatEl.innerHTML = `${seat.name} <span>Ваше місце</span><span class="mobile-direction">(${seat.desc})</span>`; } else { seatEl.innerHTML = `${seat.name} <span>Зайнято: ${occupiedBy}</span><span class="mobile-direction">(${seat.desc})</span>`; } } 
+                else { if (currentUserRole === 'employee') { seatEl.innerHTML = `${seat.name}<span class="mobile-direction">(${seat.desc})</span>`; seatEl.onclick = () => saveBooking('office', seat.name); } else { seatEl.innerHTML = `${seat.name}<span class="mobile-direction">(${seat.desc})</span>`; seatEl.onclick = () => saveBooking('office', seat.name); } }
                 employeesRow.appendChild(seatEl);
             });
         }
@@ -501,7 +548,7 @@
         }
 
         function showSyncStatus(msg, isError = false) { const el = document.getElementById('syncStatus'); el.innerText = msg; el.style.color = isError ? "var(--red)" : "#6b7280"; }
-        function exportArchive() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2)); const downloadAnchor = document.createElement('a'); downloadAnchor.setAttribute("href", dataStr); downloadAnchor.setAttribute("download", `booking_archive_${new Date().toISOString().split('T')[0]}.json`); document.body.appendChild(downloadAnchor); downloadAnchor.click(); downloadAnchor.remove(); }
+        function exportArchive() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2)); const downloadAnchor = document.createElement('a'); downloadAnchor.setAttribute("href", dataStr); downloadAnchor.setAttribute("download", `booking_archive_${getKyivDate().toISOString().split('T')[0]}.json`); document.body.appendChild(downloadAnchor); downloadAnchor.click(); downloadAnchor.remove(); }
     </script>
 </body>
 </html>
