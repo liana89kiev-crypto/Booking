@@ -79,7 +79,10 @@
         .seat.taken { background: var(--disabled); color: var(--text); cursor: not-allowed; font-weight: normal; }
         .seat.taken span { font-size: 10px; display: block; color: #555; font-style: italic; }
         .seat.disabled { background: var(--gray-light); color: #9ca3af; border-style: dashed; cursor: not-allowed; }
+        
+        /* ЗМІНИ ТУТ: Чіткий білий колір для вашої броні */
         .seat.my-booking { background: var(--blue) !important; color: white !important; }
+        .seat.my-booking span { color: #ffffff !important; font-weight: bold !important; opacity: 0.95; }
 
         /* Блоки інформації */
         .info-panel { background: #f8fafc; border: 1px solid var(--gray-border); border-radius: 8px; padding: 15px; margin-top: 25px; font-size: 13px; color: #4b5563; }
@@ -354,21 +357,19 @@
             openTime.setHours(13, 0, 0, 0);
 
             let closeTime = new Date(targetDate);
-            closeTime.setHours(10, 0, 0, 0); // ОНОВЛЕНО: Бронювання закривається о 10:00
+            closeTime.setHours(10, 0, 0, 0);
 
             return (nowKyiv >= openTime && nowKyiv <= closeTime);
         }
 
-        // АВТОМАТИЧНИЙ МОНІТОРИНГ ДЕФІЦИТУ: Запис тих, кому не вистачило місця після 10:00
         function checkUnfulfilledQueue(updatedDb) {
             let nowKyiv = getKyivDate();
             let hasChanges = false;
 
             Object.keys(updatedDb.bookings).forEach(dateStr => {
                 let dayObj = updatedDb.bookings[dateStr];
-                let targetDateEnd = new Date(dateStr + "T10:00:00"); // ОНОВЛЕНО: Перевірка після 10:00
+                let targetDateEnd = new Date(dateStr + "T10:00:00");
 
-                // Якщо 10:00 цього дня вже минуло і у черзі хтось залишився
                 if (nowKyiv > targetDateEnd && dayObj["_waiting_list_"] && dayObj["_waiting_list_"].length > 0) {
                     dayObj["_waiting_list_"].forEach(unfortunateUser => {
                         if (dayObj[unfortunateUser] && dayObj[unfortunateUser].format === 'waiting') {
@@ -376,7 +377,6 @@
                             hasChanges = true;
                         }
                     });
-                    // Очищаємо активну чергу
                     dayObj["_waiting_list_"] = [];
                 }
             });
