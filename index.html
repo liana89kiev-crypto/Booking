@@ -65,6 +65,7 @@
         .badge-office { background: #def7ec; color: #03543f; }
         .badge-remote { background: #edf2f7; color: #4a5568; }
         .badge-waiting { background: var(--orange-light); color: #92400e; border: 1px solid #fcd34d; }
+        .badge-unfulfilled { background: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
 
         /* Схема офісу */
         .office-map-container { background: var(--gray-light); padding: 15px; border-radius: 8px; margin-top: 15px; }
@@ -157,7 +158,7 @@
                 <ul>
                     <li><strong>👤 Важливо про авторизацію:</strong> Будь ласка, заходьте в систему <strong>лише під своїм прізвищем та ім'ям</strong>.</li>
                     <li><strong>📅 Планування на 2 тижні вперед:</strong> Ви можете заздалегідь обирати формат <strong>«Віддалено 🏠»</strong> на будь-які дні.</li>
-                    <li><strong>🏢 Як забронювати місце в офісі:</strong> Оберіть потрібний день (вибір відкривається <strong>о 13:00 попереднього дня</strong>), змініть формат на <strong>«В офісі 🏢»</strong> та <strong>клікніть по вільному зеленому столу</strong>.</li>
+                    <li><strong>🏢 Як забронювати місце в офісі:</strong> Оберіть потрібний день (вибір відкривається <strong>о 13:00 попереднього дня</strong> і закривається <strong>о 10:00 в день візиту</strong>), змініть формат на <strong>«В офісі 🏢»</strong> та <strong>клікніть по вільному зеленому столу</strong>.</li>
                     <li><strong>⏳ Черга очікування:</strong> Якщо всі місця зайняті, натисніть кнопку <strong>«Стати в чергу за місцем»</strong>. Як тільки хтось скасує бронь, система <strong>автоматично перекине першого з черги</strong> на вільний стіл!</li>
                     <li><strong>👀 Перегляд колег на сторінці:</strong> Оберіть будь-який день у календарі, щоб побачити схему столів, список тих, хто працює віддалено, та чергу очікування.</li>
                     <li><strong>🔄 Зміна або скасування:</strong> Натисніть кнопку <strong>«Скасувати вибір на цей день»</strong>, щоб звільнити стіл для колег або вийти з черги.</li>
@@ -353,9 +354,34 @@
             openTime.setHours(13, 0, 0, 0);
 
             let closeTime = new Date(targetDate);
-            closeTime.setHours(9, 0, 0, 0);
+            closeTime.setHours(10, 0, 0, 0); // ОНОВЛЕНО: Бронювання закривається о 10:00
 
             return (nowKyiv >= openTime && nowKyiv <= closeTime);
+        }
+
+        // АВТОМАТИЧНИЙ МОНІТОРИНГ ДЕФІЦИТУ: Запис тих, кому не вистачило місця після 10:00
+        function checkUnfulfilledQueue(updatedDb) {
+            let nowKyiv = getKyivDate();
+            let hasChanges = false;
+
+            Object.keys(updatedDb.bookings).forEach(dateStr => {
+                let dayObj = updatedDb.bookings[dateStr];
+                let targetDateEnd = new Date(dateStr + "T10:00:00"); // ОНОВЛЕНО: Перевірка після 10:00
+
+                // Якщо 10:00 цього дня вже минуло і у черзі хтось залишився
+                if (nowKyiv > targetDateEnd && dayObj["_waiting_list_"] && dayObj["_waiting_list_"].length > 0) {
+                    dayObj["_waiting_list_"].forEach(unfortunateUser => {
+                        if (dayObj[unfortunateUser] && dayObj[unfortunateUser].format === 'waiting') {
+                            dayObj[unfortunateUser] = { format: 'unfulfilled', seat: null };
+                            hasChanges = true;
+                        }
+                    });
+                    // Очищаємо активну чергу
+                    dayObj["_waiting_list_"] = [];
+                }
+            });
+
+            return hasChanges;
         }
 
         async function initSync() { showSyncStatus("Завантаження даних..."); await syncGet(); checkNextWeekAvailability(); }
@@ -363,7 +389,12 @@
         async function syncGet() {
             try {
                 let res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-                let data = await res.json(); db = data.record || { bookings: {} }; showSyncStatus("Дані оновлено синхронно");
+                let data = await res.json(); db = data.record || { bookings: {} };
+                
+                let needUpdate = checkUnfulfilledQueue(db);
+                if (needUpdate) { await syncPut(db); return; }
+
+                showSyncStatus("Дані оновлено синхронно");
                 if (currentUser) { renderDaysGrid(); if (selectedDateStr) refreshDayView(); }
                 if (isAdmin) renderAdminData();
             } catch (err) { showSyncStatus("Помилка з'єднання", true); }
@@ -411,6 +442,8 @@
                         let queueList = dayBookings["_waiting_list_"] || [];
                         let qPos = queueList.indexOf(currentUser) + 1;
                         userStatusText = `В черзі №${qPos > 0 ? qPos : 1}`; badgeClass = "badge-waiting";
+                    } else if (dayBookings[currentUser].format === 'unfulfilled') {
+                        userStatusText = "Не вистачило місця ❌"; badgeClass = "badge-unfulfilled";
                     } else { 
                         userStatusText = "Віддалено"; badgeClass = "badge-remote"; 
                     }
@@ -439,17 +472,17 @@
             const joinQueueBlock = document.getElementById('joinQueueBlock');
 
             if (!isOfficeAvailable(selectedDateStr)) {
-                timeAlert.innerText = `ℹ️ На цей день зараз можна обрати тільки формат "Віддалено". Вибір офісу відкриється о 13:00 попереднього дня.`;
+                timeAlert.innerText = `ℹ️ На цей день зараз можна обрати тільки формат "Віддалено". Вибір офісу відкривається о 13:00 попереднього дня та закривається о 10:00 в день візиту.`;
                 timeAlert.className = "alert-box alert-info";
                 timeAlert.classList.remove('hidden');
             } else {
-                timeAlert.innerText = `✅ Бронювання столів в офісі на цей день зараз відкрито.`;
+                timeAlert.innerText = `✅ Бронювання столів в офісі на цей день зараз відкрито (до 10:00 ранку).`;
                 timeAlert.className = "alert-box alert-warning";
                 timeAlert.classList.remove('hidden');
             }
 
             if (userBooking) { 
-                document.getElementById('workFormatSelect').value = (userBooking.format === 'waiting' ? 'office' : userBooking.format); 
+                document.getElementById('workFormatSelect').value = (userBooking.format === 'waiting' || userBooking.format === 'unfulfilled' ? 'office' : userBooking.format); 
                 document.getElementById('cancelBookingBtn').classList.remove('hidden'); 
             } else { 
                 if (currentUserRole === 'manager' && isOfficeAvailable(selectedDateStr)) { 
@@ -496,7 +529,7 @@
             }
 
             if (format === 'office' && !isOfficeAvailable(selectedDateStr)) {
-                alert("Помилка! Вибір офісу на цей день ще закритий. Наперед можна обирати тільки 'Віддалено'.");
+                alert("Помилка! Вибір офісу на цей день закритий (можливий з 13:00 попереднього дня до 10:00 дня візиту). Зараз можна обрати тільки 'Віддалено'.");
                 document.getElementById('workFormatSelect').value = 'none';
                 return;
             }
@@ -520,10 +553,8 @@
                             dayBookings["_system_alert_moved_"] = { date: selectedDateStr, user: luckyEmployee, newSeat: newSeatForEmployee }; 
                             delete dayBookings["_system_alert_evicted_"]; 
                         } else { 
-                            // ВІЛЬНИХ МІСЦЬ НЕМАЄ -> Ставимо виселеного співробітника першим у чергу!
                             dayBookings[luckyEmployee] = { format: 'waiting', seat: null }; 
                             if (!dayBookings["_waiting_list_"]) dayBookings["_waiting_list_"] = [];
-                            // Видаляємо дублікати, якщо вже був у черзі, і ставимо першим (unshift)
                             dayBookings["_waiting_list_"] = dayBookings["_waiting_list_"].filter(u => u !== luckyEmployee);
                             dayBookings["_waiting_list_"].unshift(luckyEmployee);
 
@@ -538,7 +569,6 @@
                 document.getElementById('officeMapSection').classList.remove('hidden'); 
                 renderOfficeMap();
             } else if (format === 'remote') {
-                // Видаляємо з системи й обробляємо чергу
                 if (dayBookings[currentUser]) delete dayBookings[currentUser];
                 if (dayBookings["_waiting_list_"]) dayBookings["_waiting_list_"] = dayBookings["_waiting_list_"].filter(u => u !== currentUser);
                 
@@ -548,12 +578,10 @@
             }
         }
 
-        // Автоматичне просування черги очікування на вільне місце
         function processWaitingList(updatedDb, dateStr) {
             const dayBookings = updatedDb.bookings[dateStr];
             if (!dayBookings || !dayBookings["_waiting_list_"] || dayBookings["_waiting_list_"].length === 0) return;
 
-            // Вираховуємо вільні місця
             let busySeats = Object.values(dayBookings).filter(b => b.seat).map(b => b.seat);
             let allAvailableSeats = [...EMPLOYEE_SEATS.map(s => s.name)];
             MANAGERS.forEach(m => {
@@ -563,7 +591,6 @@
             });
             let freeSeats = allAvailableSeats.filter(s => !busySeats.includes(s));
 
-            // Якщо є вільні місця і люди в черзі — віддаємо місця по черзі
             while (freeSeats.length > 0 && dayBookings["_waiting_list_"].length > 0) {
                 let nextUser = dayBookings["_waiting_list_"].shift();
                 let assignedSeat = freeSeats.shift();
@@ -613,18 +640,15 @@
                 else { managersSeatsStatus[fixedSeatName] = { taken: true, by: m }; }
             });
 
-            // Перевіряємо, чи є взагалі хоч один вільний стіл в офісі
             let busySeatsCount = Object.values(dayBookings).filter(b => b.format === 'office' && b.seat).length;
-            // Для керівників, які не робили дій, стіл вважається автоматично зайнятим ними
             MANAGERS.forEach(m => { if (!dayBookings[m]) busySeatsCount++; });
 
             let totalSeats = 7; 
             let allTaken = busySeatsCount >= totalSeats;
 
-            // Якщо всі місця зайняті і користувач ще не забронював стіл/чергу — показуємо блок вставання в чергу
             const userBooking = dayBookings[currentUser];
             if (allTaken && currentUserRole === 'employee' && (!userBooking || userBooking.format !== 'office')) {
-                if (userBooking && userBooking.format === 'waiting') {
+                if (userBooking && (userBooking.format === 'waiting' || userBooking.format === 'unfulfilled')) {
                     joinQueueBlock.classList.add('hidden');
                 } else {
                     joinQueueBlock.classList.remove('hidden');
@@ -656,7 +680,6 @@
         function saveBooking(format, seatName) {
             let updatedDb = JSON.parse(JSON.stringify(db)); if (!updatedDb.bookings[selectedDateStr]) updatedDb.bookings[selectedDateStr] = {};
             
-            // Якщо людина була в черзі — видаляємо її з черги
             if (updatedDb.bookings[selectedDateStr]["_waiting_list_"]) {
                 updatedDb.bookings[selectedDateStr]["_waiting_list_"] = updatedDb.bookings[selectedDateStr]["_waiting_list_"].filter(u => u !== currentUser);
             }
@@ -677,7 +700,6 @@
                     delete updatedDb.bookings[selectedDateStr][currentUser];
                 }
                 
-                // Видаляємо з черги очікування
                 if (updatedDb.bookings[selectedDateStr]["_waiting_list_"]) {
                     updatedDb.bookings[selectedDateStr]["_waiting_list_"] = updatedDb.bookings[selectedDateStr]["_waiting_list_"].filter(u => u !== currentUser);
                 }
@@ -685,7 +707,6 @@
                 if (updatedDb.bookings[selectedDateStr]["_system_alert_moved_"]?.user === currentUser) delete updatedDb.bookings[selectedDateStr]["_system_alert_moved_"];
                 if (updatedDb.bookings[selectedDateStr]["_system_alert_evicted_"]?.user === currentUser) delete updatedDb.bookings[selectedDateStr]["_system_alert_evicted_"];
                 
-                // Автоматично віддаємо вільне місце першому з черги!
                 processWaitingList(updatedDb, selectedDateStr);
 
                 if (Object.keys(updatedDb.bookings[selectedDateStr]).filter(k => !k.startsWith('_')).length === 0) { 
@@ -723,13 +744,15 @@
                 Object.keys(users).forEach(user => {
                     if (user.startsWith('_')) return; const info = users[user]; const archRow = document.createElement('tr');
                     
-                    let formatText = info.format === 'office' ? info.seat : (info.format === 'waiting' ? '⏳ В черзі' : 'Віддалено');
-                    archRow.innerHTML = `<td>${dateStr}</td><td>${user}</td><td><span class="status-badge ${info.format === 'office' ? 'badge-office': (info.format === 'waiting' ? 'badge-waiting' : 'badge-remote')}">${formatText}</span></td>`;
+                    let formatText = info.format === 'office' ? info.seat : (info.format === 'waiting' ? '⏳ В черзі' : (info.format === 'unfulfilled' ? '❌ Не вистачило місця' : 'Віддалено'));
+                    let badgeClass = info.format === 'office' ? 'badge-office': (info.format === 'waiting' ? 'badge-waiting' : (info.format === 'unfulfilled' ? 'badge-unfulfilled' : 'badge-remote'));
+                    
+                    archRow.innerHTML = `<td>${dateStr}</td><td>${user}</td><td><span class="status-badge ${badgeClass}">${formatText}</span></td>`;
                     archiveBody.appendChild(archRow);
                     
                     if (!filterDate || filterDate === dateStr) {
                         const liveRow = document.createElement('tr');
-                        liveRow.innerHTML = `<td>${dateStr}</td><td><strong>${user}</strong></td><td>${info.format === 'office' ? '🏢 В офісі' : (info.format === 'waiting' ? '⏳ В черзі' : '🏠 Віддалено')}</td><td>${info.seat || '-'}</td><td><button class="btn btn-danger" style="padding:3px 8px; font-size:12px;" onclick="adminResetSingle('${dateStr}', '${user}')">Скинути</button></td>`;
+                        liveRow.innerHTML = `<td>${dateStr}</td><td><strong>${user}</strong></td><td>${info.format === 'office' ? '🏢 В офісі' : (info.format === 'waiting' ? '⏳ В черзі' : (info.format === 'unfulfilled' ? '❌ Не вистачило місця' : '🏠 Віддалено'))}</td><td>${info.seat || '-'}</td><td><button class="btn btn-danger" style="padding:3px 8px; font-size:12px;" onclick="adminResetSingle('${dateStr}', '${user}')">Скинути</button></td>`;
                         liveBody.appendChild(liveRow);
                     }
                 });
