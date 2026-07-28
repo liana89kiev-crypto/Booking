@@ -80,7 +80,6 @@
         .seat.taken span { font-size: 10px; display: block; color: #555; font-style: italic; }
         .seat.disabled { background: var(--gray-light); color: #9ca3af; border-style: dashed; cursor: not-allowed; }
         
-        /* ЗМІНИ ТУТ: Чіткий білий колір для вашої броні */
         .seat.my-booking { background: var(--blue) !important; color: white !important; }
         .seat.my-booking span { color: #ffffff !important; font-weight: bold !important; opacity: 0.95; }
 
@@ -315,10 +314,17 @@
             { id: 'E4', name: 'Місце 4' }
         ];
 
-        let db = { bookings: {} }; let currentUser = null; let currentUserRole = null; let currentWeekOffset = 0; let selectedDateStr = null; let isAdmin = false;
+        let db = { bookings: {} }; 
+        let currentUser = null; 
+        let currentUserRole = null; 
+        let currentWeekOffset = 0; 
+        let selectedDateStr = null; 
+        let isAdmin = false;
+        let isDbLoaded = false;
 
         window.addEventListener('DOMContentLoaded', () => {
-            initSync(); setInterval(syncGet, REFRESH_INTERVAL);
+            initSync(); 
+            setInterval(syncGet, REFRESH_INTERVAL);
             document.getElementById('adminDateFilter').value = getKyivDate().toISOString().split('T')[0];
         });
 
@@ -366,6 +372,8 @@
             let nowKyiv = getKyivDate();
             let hasChanges = false;
 
+            if (!updatedDb.bookings) return false;
+
             Object.keys(updatedDb.bookings).forEach(dateStr => {
                 let dayObj = updatedDb.bookings[dateStr];
                 let targetDateEnd = new Date(dateStr + "T10:00:00");
@@ -386,10 +394,20 @@
 
         async function initSync() { showSyncStatus("Завантаження даних..."); await syncGet(); checkNextWeekAvailability(); }
 
+        async function fetchFreshDb() {
+            let res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+            if (!res.ok) throw new Error("Помилка завантаження");
+            let data = await res.json();
+            let freshDb = data.record || { bookings: {} };
+            if (!freshDb.bookings) freshDb.bookings = {};
+            return freshDb;
+        }
+
         async function syncGet() {
             try {
-                let res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-                let data = await res.json(); db = data.record || { bookings: {} };
+                let freshDb = await fetchFreshDb();
+                db = freshDb;
+                isDbLoaded = true;
                 
                 let needUpdate = checkUnfulfilledQueue(db);
                 if (needUpdate) { await syncPut(db); return; }
@@ -397,17 +415,35 @@
                 showSyncStatus("Дані оновлено синхронно");
                 if (currentUser) { renderDaysGrid(); if (selectedDateStr) refreshDayView(); }
                 if (isAdmin) renderAdminData();
-            } catch (err) { showSyncStatus("Помилка з'єднання", true); }
+            } catch (err) { 
+                showSyncStatus("Помилка з'єднання з базою!", true); 
+            }
         }
 
         async function syncPut(newData) {
+            if (!isDbLoaded) {
+                alert("Увага! Зв'язок із сервером ще не встановлено. Зачекайте 3 секунди та спробуйте ще раз.");
+                await syncGet();
+                return;
+            }
+
             showSyncStatus("Збереження...");
             try {
                 let res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY }, body: JSON.stringify(newData)
                 });
-                if (res.ok) { showSyncStatus("Збережено!"); db = newData; renderDaysGrid(); if (selectedDateStr) refreshDayView(); if (isAdmin) renderAdminData(); } else { showSyncStatus("Помилка збереження", true); }
-            } catch (err) { showSyncStatus("Помилка мережі", true); }
+                if (res.ok) { 
+                    showSyncStatus("Збережено!"); 
+                    db = newData; 
+                    renderDaysGrid(); 
+                    if (selectedDateStr) refreshDayView(); 
+                    if (isAdmin) renderAdminData(); 
+                } else { 
+                    showSyncStatus("Помилка збереження", true); 
+                }
+            } catch (err) { 
+                showSyncStatus("Помилка мережі", true); 
+            }
         }
 
         function login() {
@@ -520,7 +556,7 @@
             }
         }
 
-        function handleFormatChange() {
+        async function handleFormatChange() {
             const format = document.getElementById('workFormatSelect').value; 
             if (format === 'none') { 
                 document.getElementById('officeMapSection').classList.add('hidden'); 
@@ -534,7 +570,10 @@
                 return;
             }
 
-            let updatedDb = JSON.parse(JSON.stringify(db)); if (!updatedDb.bookings[selectedDateStr]) updatedDb.bookings[selectedDateStr] = {}; const dayBookings = updatedDb.bookings[selectedDateStr];
+            // Спочатку витягуємо СВІЖУ базу перед будь-яким записом
+            let freshDb = await fetchFreshDb();
+            if (!freshDb.bookings[selectedDateStr]) freshDb.bookings[selectedDateStr] = {}; 
+            const dayBookings = freshDb.bookings[selectedDateStr];
 
             if (format === 'office') {
                 if (currentUserRole === 'manager') {
@@ -563,7 +602,7 @@
                         }
                     }
                     dayBookings[currentUser] = { format: 'office', seat: originalSeat }; 
-                    syncPut(updatedDb); 
+                    syncPut(freshDb); 
                     return;
                 }
                 document.getElementById('officeMapSection').classList.remove('hidden'); 
@@ -573,8 +612,8 @@
                 if (dayBookings["_waiting_list_"]) dayBookings["_waiting_list_"] = dayBookings["_waiting_list_"].filter(u => u !== currentUser);
                 
                 dayBookings[currentUser] = { format: 'remote', seat: null }; 
-                processWaitingList(updatedDb, selectedDateStr);
-                syncPut(updatedDb);
+                processWaitingList(freshDb, selectedDateStr);
+                syncPut(freshDb);
             }
         }
 
@@ -598,18 +637,18 @@
             }
         }
 
-        function joinWaitingList() {
+        async function joinWaitingList() {
             if (!selectedDateStr || !currentUser) return;
-            let updatedDb = JSON.parse(JSON.stringify(db));
-            if (!updatedDb.bookings[selectedDateStr]) updatedDb.bookings[selectedDateStr] = {};
-            const dayBookings = updatedDb.bookings[selectedDateStr];
+            let freshDb = await fetchFreshDb();
+            if (!freshDb.bookings[selectedDateStr]) freshDb.bookings[selectedDateStr] = {};
+            const dayBookings = freshDb.bookings[selectedDateStr];
 
             if (!dayBookings["_waiting_list_"]) dayBookings["_waiting_list_"] = [];
             if (!dayBookings["_waiting_list_"].includes(currentUser)) {
                 dayBookings["_waiting_list_"].push(currentUser);
             }
             dayBookings[currentUser] = { format: 'waiting', seat: null };
-            syncPut(updatedDb);
+            syncPut(freshDb);
         }
 
         function renderOfficeMap() {
@@ -677,49 +716,55 @@
             });
         }
 
-        function saveBooking(format, seatName) {
-            let updatedDb = JSON.parse(JSON.stringify(db)); if (!updatedDb.bookings[selectedDateStr]) updatedDb.bookings[selectedDateStr] = {};
+        async function saveBooking(format, seatName) {
+            let freshDb = await fetchFreshDb();
+            if (!freshDb.bookings[selectedDateStr]) freshDb.bookings[selectedDateStr] = {};
             
-            if (updatedDb.bookings[selectedDateStr]["_waiting_list_"]) {
-                updatedDb.bookings[selectedDateStr]["_waiting_list_"] = updatedDb.bookings[selectedDateStr]["_waiting_list_"].filter(u => u !== currentUser);
+            if (freshDb.bookings[selectedDateStr]["_waiting_list_"]) {
+                freshDb.bookings[selectedDateStr]["_waiting_list_"] = freshDb.bookings[selectedDateStr]["_waiting_list_"].filter(u => u !== currentUser);
             }
 
-            if (updatedDb.bookings[selectedDateStr]["_system_alert_moved_"]?.user === currentUser) delete updatedDb.bookings[selectedDateStr]["_system_alert_moved_"];
-            if (updatedDb.bookings[selectedDateStr]["_system_alert_evicted_"]?.user === currentUser) delete updatedDb.bookings[selectedDateStr]["_system_alert_evicted_"];
+            if (freshDb.bookings[selectedDateStr]["_system_alert_moved_"]?.user === currentUser) delete freshDb.bookings[selectedDateStr]["_system_alert_moved_"];
+            if (freshDb.bookings[selectedDateStr]["_system_alert_evicted_"]?.user === currentUser) delete freshDb.bookings[selectedDateStr]["_system_alert_evicted_"];
             
-            updatedDb.bookings[selectedDateStr][currentUser] = { format: format, seat: seatName }; 
-            syncPut(updatedDb);
+            freshDb.bookings[selectedDateStr][currentUser] = { format: format, seat: seatName }; 
+            syncPut(freshDb);
         }
 
-        function cancelCurrentBooking() {
+        // ЗАХИЩЕНЕ СКАСУВАННЯ: Ніколи не видаляє об'єкт дня!
+        async function cancelCurrentBooking() {
             if (!selectedDateStr || !currentUser) return;
-            let updatedDb = JSON.parse(JSON.stringify(db));
             
-            if (updatedDb.bookings[selectedDateStr]) {
-                if (updatedDb.bookings[selectedDateStr][currentUser]) {
-                    delete updatedDb.bookings[selectedDateStr][currentUser];
+            // Завантажуємо НАЙСВІЖІШІ дані з сервера
+            let freshDb = await fetchFreshDb();
+            
+            if (freshDb.bookings[selectedDateStr]) {
+                // Видаляємо ЛИШЕ запис поточного користувача
+                if (freshDb.bookings[selectedDateStr][currentUser]) {
+                    delete freshDb.bookings[selectedDateStr][currentUser];
                 }
                 
-                if (updatedDb.bookings[selectedDateStr]["_waiting_list_"]) {
-                    updatedDb.bookings[selectedDateStr]["_waiting_list_"] = updatedDb.bookings[selectedDateStr]["_waiting_list_"].filter(u => u !== currentUser);
+                // Видаляємо з черги очікування
+                if (freshDb.bookings[selectedDateStr]["_waiting_list_"]) {
+                    freshDb.bookings[selectedDateStr]["_waiting_list_"] = freshDb.bookings[selectedDateStr]["_waiting_list_"].filter(u => u !== currentUser);
                 }
 
-                if (updatedDb.bookings[selectedDateStr]["_system_alert_moved_"]?.user === currentUser) delete updatedDb.bookings[selectedDateStr]["_system_alert_moved_"];
-                if (updatedDb.bookings[selectedDateStr]["_system_alert_evicted_"]?.user === currentUser) delete updatedDb.bookings[selectedDateStr]["_system_alert_evicted_"];
+                if (freshDb.bookings[selectedDateStr]["_system_alert_moved_"]?.user === currentUser) delete freshDb.bookings[selectedDateStr]["_system_alert_moved_"];
+                if (freshDb.bookings[selectedDateStr]["_system_alert_evicted_"]?.user === currentUser) delete freshDb.bookings[selectedDateStr]["_system_alert_evicted_"];
                 
-                processWaitingList(updatedDb, selectedDateStr);
+                // Автоматично просуваємо чергу
+                processWaitingList(freshDb, selectedDateStr);
 
-                if (Object.keys(updatedDb.bookings[selectedDateStr]).filter(k => !k.startsWith('_')).length === 0) { 
-                    delete updatedDb.bookings[selectedDateStr]; 
-                }
-                
-                db = updatedDb; 
+                // Оновлюємо інтерфейс
+                db = freshDb; 
                 document.getElementById('workFormatSelect').value = 'none'; 
                 document.getElementById('officeMapSection').classList.add('hidden'); 
                 document.getElementById('mapAlertBox').classList.add('hidden');
                 document.getElementById('joinQueueBlock').classList.add('hidden');
                 renderDaysGrid(); 
-                syncPut(updatedDb);
+                
+                // Зберігаємо свіжий об'єкт без ризику затерти день
+                syncPut(freshDb);
             }
         }
 
@@ -759,17 +804,16 @@
             });
         }
 
-        function adminResetSingle(dateStr, user) {
+        async function adminResetSingle(dateStr, user) {
             if (confirm(`Скасувати бронювання/чергу для ${user} на дату ${dateStr}?`)) {
-                let updatedDb = JSON.parse(JSON.stringify(db)); 
-                if (updatedDb.bookings[dateStr]) { 
-                    delete updatedDb.bookings[dateStr][user]; 
-                    if (updatedDb.bookings[dateStr]["_waiting_list_"]) {
-                        updatedDb.bookings[dateStr]["_waiting_list_"] = updatedDb.bookings[dateStr]["_waiting_list_"].filter(u => u !== user);
+                let freshDb = await fetchFreshDb(); 
+                if (freshDb.bookings[dateStr]) { 
+                    delete freshDb.bookings[dateStr][user]; 
+                    if (freshDb.bookings[dateStr]["_waiting_list_"]) {
+                        freshDb.bookings[dateStr]["_waiting_list_"] = freshDb.bookings[dateStr]["_waiting_list_"].filter(u => u !== user);
                     }
-                    processWaitingList(updatedDb, dateStr);
-                    if (Object.keys(updatedDb.bookings[dateStr]).filter(k => !k.startsWith('_')).length === 0) delete updatedDb.bookings[dateStr]; 
-                    syncPut(updatedDb); 
+                    processWaitingList(freshDb, dateStr);
+                    syncPut(freshDb); 
                 }
             }
         }
