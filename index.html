@@ -302,7 +302,7 @@
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         const ADMIN_PASSWORD = '2026';
-        const REFRESH_INTERVAL = 10000; // Оновлюємо дані кожні 10 сек
+        const REFRESH_INTERVAL = 15000; // Оновлюємо дані кожні 15 сек
 
         const MANAGERS = ['Леопард', 'Пантера', 'Тигр'];
         const EMPLOYEES = ['Олекса Квасневська', 'Ліана Хомич', 'Вікторія Крохмаль', 'Анастасія Даценко', 'Юлія Андрієвська', 'Юлія Войтенко', 'Лілія Новосад'];
@@ -390,9 +390,15 @@
 
                 db.bookings = formattedBookings;
                 showSyncStatus("🟢 Supabase: Синхронізовано");
+                
+                // М'ЯКЕ ОНОВЛЕННЯ: оновлюємо календар у фоні, не закриваючи обраний день
                 if (currentUser) {
                     renderDaysGrid();
-                    if (selectedDateStr) refreshDayView();
+                    if (selectedDateStr) {
+                        // Оновлюємо карту столів без скидання форми
+                        let currentFormat = document.getElementById('workFormatSelect').value;
+                        if (currentFormat === 'office') renderOfficeMap();
+                    }
                 }
                 if (isAdmin) renderAdminData();
             } catch (err) {
@@ -470,7 +476,7 @@
                 timeAlert.classList.remove('hidden');
             }
 
-            if (userBooking) { 
+            if (userBooking && userBooking.format !== 'cancelled') { 
                 document.getElementById('workFormatSelect').value = (userBooking.format === 'waiting' || userBooking.format === 'unfulfilled' ? 'office' : userBooking.format); 
                 document.getElementById('cancelBookingBtn').classList.remove('hidden'); 
             } else { 
@@ -584,7 +590,7 @@
 
             let busySeatsCount = Object.values(dayBookings).filter(b => b.format === 'office' && b.seat).length;
             MANAGERS.forEach(m => { 
-                if (!dayBookings[m]) busySeatsCount++; 
+                if (!dayBookings[m] || dayBookings[m].format === 'office') busySeatsCount++; 
             });
 
             let totalSeats = 7; 
