@@ -117,6 +117,8 @@
         .admin-table th { background: var(--gray-light); }
         .sync-indicator { font-size: 11px; color: #6b7280; text-align: right; margin-top: 5px; }
     </style>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -124,7 +126,7 @@
         <header>
             <div>
                 <h1>Office Booking System</h1>
-                <div class="sync-indicator" id="syncStatus">Оновлення...</div>
+                <div class="sync-indicator" id="syncStatus">З'єднання з Supabase...</div>
             </div>
             <button class="btn btn-outline" id="adminToggleBtn" onclick="toggleAdminPanel()">Адмін Panel</button>
         </header>
@@ -293,10 +295,14 @@
     </div>
 
     <script>
-        const API_KEY = '$2a$10$sob4JoxEjCWHuzxWpPEZkuH29lhni9FEMn6ThLwGaKcbuheV4duoe';
-        const BIN_ID = '6a54b6f5da38895dfe55ec69'; 
-        const ADMIN_PASSWORD = '2026'; 
-        const REFRESH_INTERVAL = 60000; 
+        // ІНІЦІАЛІЗАЦІЯ SUPABASE З ВАШИМИ КЛЮЧАМИ:
+        const SUPABASE_URL = 'https://cjslruznsfdtdyzsgglh.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqc2xydXpuc2ZkdGR5enNnZ2xoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyODI3NTAsImV4cCI6MjEwMDg1ODc1MH0.09WPbGAaNHpPakkCOOlkzjbnNqnc0vZ4toW42P3uWOM';
+
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const ADMIN_PASSWORD = '2026';
+        const REFRESH_INTERVAL = 10000; // Оновлюємо дані кожні 10 сек
 
         const MANAGERS = ['Леопард', 'Пантера', 'Тигр'];
         const EMPLOYEES = ['Олекса Квасневська', 'Ліана Хомич', 'Вікторія Крохмаль', 'Руслана Волохата', 'Анастасія Даценко', 'Юлія Андрієвська', 'Юлія Войтенко'];
@@ -320,10 +326,9 @@
         let currentWeekOffset = 0; 
         let selectedDateStr = null; 
         let isAdmin = false;
-        let isDbLoaded = false;
 
         window.addEventListener('DOMContentLoaded', () => {
-            initSync(); 
+            initSync();
             setInterval(syncGet, REFRESH_INTERVAL);
             document.getElementById('adminDateFilter').value = getKyivDate().toISOString().split('T')[0];
         });
@@ -349,11 +354,6 @@
             return `${date.getFullYear()}-${m}-${d}`;
         }
 
-        function checkNextWeekAvailability() {
-            document.getElementById('nextWeekBtn').disabled = false; 
-            document.getElementById('nextWeekBtn').style.opacity = "1";
-        }
-
         function isOfficeAvailable(targetDateStr) {
             let nowKyiv = getKyivDate();
             let targetDate = new Date(targetDateStr + "T00:00:00");
@@ -368,81 +368,35 @@
             return (nowKyiv >= openTime && nowKyiv <= closeTime);
         }
 
-        function checkUnfulfilledQueue(updatedDb) {
-            let nowKyiv = getKyivDate();
-            let hasChanges = false;
+        async function initSync() { showSyncStatus("Завантаження даних..."); await syncGet(); }
 
-            if (!updatedDb.bookings) return false;
-
-            Object.keys(updatedDb.bookings).forEach(dateStr => {
-                let dayObj = updatedDb.bookings[dateStr];
-                let targetDateEnd = new Date(dateStr + "T10:00:00");
-
-                if (nowKyiv > targetDateEnd && dayObj["_waiting_list_"] && dayObj["_waiting_list_"].length > 0) {
-                    dayObj["_waiting_list_"].forEach(unfortunateUser => {
-                        if (dayObj[unfortunateUser] && dayObj[unfortunateUser].format === 'waiting') {
-                            dayObj[unfortunateUser] = { format: 'unfulfilled', seat: null };
-                            hasChanges = true;
-                        }
-                    });
-                    dayObj["_waiting_list_"] = [];
-                }
-            });
-
-            return hasChanges;
-        }
-
-        async function initSync() { showSyncStatus("Завантаження даних..."); await syncGet(); checkNextWeekAvailability(); }
-
-        async function fetchFreshDb() {
-            let res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-            if (!res.ok) throw new Error("Помилка завантаження");
-            let data = await res.json();
-            let freshDb = data.record || { bookings: {} };
-            if (!freshDb.bookings) freshDb.bookings = {};
-            return freshDb;
-        }
-
+        // Читання всіх записів із Supabase
         async function syncGet() {
             try {
-                let freshDb = await fetchFreshDb();
-                db = freshDb;
-                isDbLoaded = true;
-                
-                let needUpdate = checkUnfulfilledQueue(db);
-                if (needUpdate) { await syncPut(db); return; }
+                let { data, error } = await _supabase.from('bookings').select('*');
+                if (error) throw error;
 
-                showSyncStatus("Дані оновлено синхронно");
-                if (currentUser) { renderDaysGrid(); if (selectedDateStr) refreshDayView(); }
-                if (isAdmin) renderAdminData();
-            } catch (err) { 
-                showSyncStatus("Помилка з'єднання з базою!", true); 
-            }
-        }
-
-        async function syncPut(newData) {
-            if (!isDbLoaded) {
-                alert("Увага! Зв'язок із сервером ще не встановлено. Зачекайте 3 секунди та спробуйте ще раз.");
-                await syncGet();
-                return;
-            }
-
-            showSyncStatus("Збереження...");
-            try {
-                let res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY }, body: JSON.stringify(newData)
+                // Трансформуємо таблицю Supabase у формат додатка
+                let formattedBookings = {};
+                data.forEach(row => {
+                    let d = row.booking_date;
+                    if (!formattedBookings[d]) formattedBookings[d] = {};
+                    formattedBookings[d][row.user_name] = {
+                        format: row.format,
+                        seat: row.seat,
+                        created_at: row.created_at
+                    };
                 });
-                if (res.ok) { 
-                    showSyncStatus("Збережено!"); 
-                    db = newData; 
-                    renderDaysGrid(); 
-                    if (selectedDateStr) refreshDayView(); 
-                    if (isAdmin) renderAdminData(); 
-                } else { 
-                    showSyncStatus("Помилка збереження", true); 
+
+                db.bookings = formattedBookings;
+                showSyncStatus("🟢 Supabase: Синхронізовано");
+                if (currentUser) {
+                    renderDaysGrid();
+                    if (selectedDateStr) refreshDayView();
                 }
-            } catch (err) { 
-                showSyncStatus("Помилка мережі", true); 
+                if (isAdmin) renderAdminData();
+            } catch (err) {
+                showSyncStatus("Помилка зв'язку з Supabase!", true);
             }
         }
 
@@ -472,15 +426,14 @@
                 let userStatusText = "Немає броні"; let badgeClass = "";
                 
                 if (dayBookings[currentUser]) {
-                    if (dayBookings[currentUser].format === 'office') { 
+                    let userF = dayBookings[currentUser].format;
+                    if (userF === 'office') { 
                         userStatusText = `В офісі: ${dayBookings[currentUser].seat}`; badgeClass = "badge-office"; 
-                    } else if (dayBookings[currentUser].format === 'waiting') {
-                        let queueList = dayBookings["_waiting_list_"] || [];
-                        let qPos = queueList.indexOf(currentUser) + 1;
-                        userStatusText = `В черзі №${qPos > 0 ? qPos : 1}`; badgeClass = "badge-waiting";
-                    } else if (dayBookings[currentUser].format === 'unfulfilled') {
+                    } else if (userF === 'waiting') {
+                        userStatusText = `В черзі ⏳`; badgeClass = "badge-waiting";
+                    } else if (userF === 'unfulfilled') {
                         userStatusText = "Не вистачило місця ❌"; badgeClass = "badge-unfulfilled";
-                    } else { 
+                    } else if (userF === 'remote') { 
                         userStatusText = "Віддалено"; badgeClass = "badge-remote"; 
                     }
                 } else {
@@ -529,7 +482,6 @@
                 document.getElementById('cancelBookingBtn').classList.add('hidden'); 
             }
 
-            checkGlobalAlertsForDay();
             const format = document.getElementById('workFormatSelect').value; const mapSection = document.getElementById('officeMapSection');
             
             if (format === 'office') { 
@@ -538,21 +490,6 @@
             } else { 
                 mapSection.classList.add('hidden'); 
                 joinQueueBlock.classList.add('hidden');
-            }
-        }
-
-        function checkGlobalAlertsForDay() {
-            const dayBookings = db.bookings[selectedDateStr] || {}; const alertBox = document.getElementById('mapAlertBox');
-            if (dayBookings["_system_alert_evicted_"] && dayBookings["_system_alert_evicted_"].date === selectedDateStr) { 
-                alertBox.innerText = `⚠️ Увага! Співробітника ${dayBookings["_system_alert_evicted_"].user} було автоматично переведено в очікування (1-й у черзі), оскільки керівник повернувся в офіс, а інших вільних столів не залишилося.`; 
-                alertBox.className = "alert-box alert-danger"; 
-                alertBox.classList.remove('hidden'); 
-            } else if (dayBookings["_system_alert_moved_"] && dayBookings["_system_alert_moved_"].date === selectedDateStr) { 
-                alertBox.innerText = `ℹ️ Інфо: Співробітника ${dayBookings["_system_alert_moved_"].user} було автоматично пересаджено на "${dayBookings["_system_alert_moved_"].newSeat}", оскільки керівник повернувся на своє рідне місце.`; 
-                alertBox.className = "alert-box alert-warning"; 
-                alertBox.classList.remove('hidden'); 
-            } else { 
-                alertBox.classList.add('hidden'); 
             }
         }
 
@@ -565,90 +502,62 @@
             }
 
             if (format === 'office' && !isOfficeAvailable(selectedDateStr)) {
-                alert("Помилка! Вибір офісу на цей день закритий (можливий з 13:00 попереднього дня до 10:00 дня візиту). Зараз можна обрати тільки 'Віддалено'.");
+                alert("Помилка! Вибір офісу на цей день закритий.");
                 document.getElementById('workFormatSelect').value = 'none';
                 return;
             }
 
-            // Спочатку витягуємо СВІЖУ базу перед будь-яким записом
-            let freshDb = await fetchFreshDb();
-            if (!freshDb.bookings[selectedDateStr]) freshDb.bookings[selectedDateStr] = {}; 
-            const dayBookings = freshDb.bookings[selectedDateStr];
-
             if (format === 'office') {
                 if (currentUserRole === 'manager') {
-                    const originalSeat = MANAGER_SEATS[currentUser]; 
-                    const luckyEmployee = Object.keys(dayBookings).find(k => dayBookings[k].seat === originalSeat && EMPLOYEES.includes(k));
-                    
-                    if (luckyEmployee) {
-                        let busySeats = Object.values(dayBookings).map(b => b.seat); 
-                        let allAvailableOfficeSeats = [...EMPLOYEE_SEATS.map(s => s.name)];
-                        MANAGERS.forEach(m => { if (dayBookings[m] && dayBookings[m].format === 'remote') { allAvailableOfficeSeats.push(MANAGER_SEATS[m]); } });
-                        let freeSeats = allAvailableOfficeSeats.filter(s => !busySeats.includes(s) && s !== originalSeat);
-                        
-                        if (freeSeats.length > 0) { 
-                            const newSeatForEmployee = freeSeats[0]; 
-                            dayBookings[luckyEmployee] = { format: 'office', seat: newSeatForEmployee }; 
-                            dayBookings["_system_alert_moved_"] = { date: selectedDateStr, user: luckyEmployee, newSeat: newSeatForEmployee }; 
-                            delete dayBookings["_system_alert_evicted_"]; 
-                        } else { 
-                            dayBookings[luckyEmployee] = { format: 'waiting', seat: null }; 
-                            if (!dayBookings["_waiting_list_"]) dayBookings["_waiting_list_"] = [];
-                            dayBookings["_waiting_list_"] = dayBookings["_waiting_list_"].filter(u => u !== luckyEmployee);
-                            dayBookings["_waiting_list_"].unshift(luckyEmployee);
-
-                            dayBookings["_system_alert_evicted_"] = { date: selectedDateStr, user: luckyEmployee }; 
-                            delete dayBookings["_system_alert_moved_"]; 
-                        }
-                    }
-                    dayBookings[currentUser] = { format: 'office', seat: originalSeat }; 
-                    syncPut(freshDb); 
+                    const originalSeat = MANAGER_SEATS[currentUser];
+                    await saveToSupabase(selectedDateStr, currentUser, 'office', originalSeat);
                     return;
                 }
                 document.getElementById('officeMapSection').classList.remove('hidden'); 
                 renderOfficeMap();
             } else if (format === 'remote') {
-                if (dayBookings[currentUser]) delete dayBookings[currentUser];
-                if (dayBookings["_waiting_list_"]) dayBookings["_waiting_list_"] = dayBookings["_waiting_list_"].filter(u => u !== currentUser);
-                
-                dayBookings[currentUser] = { format: 'remote', seat: null }; 
-                processWaitingList(freshDb, selectedDateStr);
-                syncPut(freshDb);
+                await saveToSupabase(selectedDateStr, currentUser, 'remote', null);
             }
         }
 
-        function processWaitingList(updatedDb, dateStr) {
-            const dayBookings = updatedDb.bookings[dateStr];
-            if (!dayBookings || !dayBookings["_waiting_list_"] || dayBookings["_waiting_list_"].length === 0) return;
+        // АТОМАРНИЙ ЗАПИС У SUPABASE (UPSERT)
+        async function saveToSupabase(dateStr, user, formatStr, seatName) {
+            showSyncStatus("Збереження...");
+            let { error } = await _supabase.from('bookings').upsert({
+                booking_date: dateStr,
+                user_name: user,
+                format: formatStr,
+                seat: seatName
+            }, { onConflict: 'booking_date, user_name' });
 
-            let busySeats = Object.values(dayBookings).filter(b => b.seat).map(b => b.seat);
-            let allAvailableSeats = [...EMPLOYEE_SEATS.map(s => s.name)];
-            MANAGERS.forEach(m => {
-                if (dayBookings[m] && dayBookings[m].format === 'remote') {
-                    allAvailableSeats.push(MANAGER_SEATS[m]);
-                }
-            });
-            let freeSeats = allAvailableSeats.filter(s => !busySeats.includes(s));
-
-            while (freeSeats.length > 0 && dayBookings["_waiting_list_"].length > 0) {
-                let nextUser = dayBookings["_waiting_list_"].shift();
-                let assignedSeat = freeSeats.shift();
-                dayBookings[nextUser] = { format: 'office', seat: assignedSeat };
+            if (error) {
+                alert("Помилка збереження в базу!");
+                showSyncStatus("Помилка збереження", true);
+            } else {
+                await syncGet();
             }
+        }
+
+        async function saveBooking(format, seatName) {
+            await saveToSupabase(selectedDateStr, currentUser, format, seatName);
         }
 
         async function joinWaitingList() {
-            if (!selectedDateStr || !currentUser) return;
-            let freshDb = await fetchFreshDb();
-            if (!freshDb.bookings[selectedDateStr]) freshDb.bookings[selectedDateStr] = {};
-            const dayBookings = freshDb.bookings[selectedDateStr];
+            await saveToSupabase(selectedDateStr, currentUser, 'waiting', null);
+        }
 
-            if (!dayBookings["_waiting_list_"]) dayBookings["_waiting_list_"] = [];
-            if (!dayBookings["_waiting_list_"].includes(currentUser)) {
-                dayBookings["_waiting_list_"].push(currentUser);
-            }
-            dayBookings[currentUser] = { format: 'waiting', seat: null };
-            syncPut(freshDb);
+        // АТОМАРНЕ СКАСУВАННЯ В SUPABASE
+        async function cancelCurrentBooking() {
+            if (!selectedDateStr || !currentUser) return;
+            showSyncStatus("Скасування...");
+            
+            // Змінюємо статус на cancelled замість вилучення, щоб зберегти історію
+            await saveToSupabase(selectedDateStr, currentUser, 'cancelled', null);
+
+            document.getElementById('workFormatSelect').value = 'none'; 
+            document.getElementById('officeMapSection').classList.add('hidden'); 
+            document.getElementById('joinQueueBlock').classList.add('hidden');
+            renderDaysGrid();
         }
 
         function renderOfficeMap() {
@@ -661,26 +570,22 @@
 
             managersRow.innerHTML = ''; employeesRow.innerHTML = ''; 
             const dayBookings = db.bookings[selectedDateStr] || {}; 
-            let managersSeatsStatus = {}; 
             let remoteUsers = [];
-            let queueUsers = dayBookings["_waiting_list_"] || [];
+            let queueUsers = [];
 
             Object.keys(dayBookings).forEach(u => { 
-                if (dayBookings[u].format === 'remote' && !u.startsWith('_')) remoteUsers.push(u); 
+                let b = dayBookings[u];
+                if (b.format === 'remote') remoteUsers.push(u);
+                if (b.format === 'waiting') queueUsers.push(u);
             });
             
             remoteUsersList.innerText = remoteUsers.length > 0 ? remoteUsers.join(', ') : 'немає'; 
             queueUsersList.innerText = queueUsers.length > 0 ? queueUsers.map((u, i) => `${i+1}. ${u}`).join(', ') : 'порожньо';
 
-            MANAGERS.forEach(m => {
-                const b = dayBookings[m]; const fixedSeatName = MANAGER_SEATS[m];
-                if (b && b.format === 'office') { managersSeatsStatus[fixedSeatName] = { taken: true, by: m }; } 
-                else if (b && b.format === 'remote') { managersSeatsStatus[fixedSeatName] = { taken: false, by: null }; } 
-                else { managersSeatsStatus[fixedSeatName] = { taken: true, by: m }; }
-            });
-
             let busySeatsCount = Object.values(dayBookings).filter(b => b.format === 'office' && b.seat).length;
-            MANAGERS.forEach(m => { if (!dayBookings[m]) busySeatsCount++; });
+            MANAGERS.forEach(m => { 
+                if (!dayBookings[m]) busySeatsCount++; 
+            });
 
             let totalSeats = 7; 
             let allTaken = busySeatsCount >= totalSeats;
@@ -699,73 +604,55 @@
             tablesMapWrapper.style.display = 'block';
 
             MANAGERS.forEach((m) => {
-                const seatName = MANAGER_SEATS[m]; const status = managersSeatsStatus[seatName]; const seatEl = document.createElement('div'); seatEl.className = 'seat';
+                const seatName = MANAGER_SEATS[m]; 
+                const seatEl = document.createElement('div'); seatEl.className = 'seat';
+                
                 let actualOccupiedBy = Object.keys(dayBookings).find(k => dayBookings[k].seat === seatName && dayBookings[k].format === 'office');
                 
-                if (actualOccupiedBy) { seatEl.classList.add('taken'); if (currentUser === actualOccupiedBy) { seatEl.classList.add('my-booking'); seatEl.innerHTML = `${seatName} <span>Ваша бронь</span>`; } else { seatEl.innerHTML = `${seatName} <span>Зайнято: ${actualOccupiedBy}</span>`; } } 
-                else if (status.taken) { seatEl.classList.add('taken'); if (currentUser === status.by) { seatEl.classList.add('my-booking'); seatEl.innerHTML = `${seatName} <span>Ви (Авто)</span>`; } else { seatEl.innerHTML = `${seatName} <span>Зайнято: ${status.by}</span>`; } } 
-                else { if (currentUserRole === 'employee') { seatEl.innerHTML = `${seatName} <br>(Вільне К)`; seatEl.onclick = () => saveBooking('office', seatName); } else { seatEl.classList.add('disabled'); seatEl.innerHTML = `${seatName} <span>Вільне К</span>`; } }
+                if (actualOccupiedBy) { 
+                    seatEl.classList.add('taken'); 
+                    if (currentUser === actualOccupiedBy) { 
+                        seatEl.classList.add('my-booking'); seatEl.innerHTML = `${seatName} <span>Ваша бронь</span>`; 
+                    } else { 
+                        seatEl.innerHTML = `${seatName} <span>Зайнято: ${actualOccupiedBy}</span>`; 
+                    } 
+                } else if (!dayBookings[m] || dayBookings[m].format === 'office') { 
+                    seatEl.classList.add('taken'); 
+                    if (currentUser === m) { 
+                        seatEl.classList.add('my-booking'); seatEl.innerHTML = `${seatName} <span>Ви (Авто)</span>`; 
+                    } else { 
+                        seatEl.innerHTML = `${seatName} <span>Зайнято: ${m}</span>`; 
+                    } 
+                } else { 
+                    if (currentUserRole === 'employee') { 
+                        seatEl.innerHTML = `${seatName} <br>(Вільне К)`; seatEl.onclick = () => saveBooking('office', seatName); 
+                    } else { 
+                        seatEl.classList.add('disabled'); seatEl.innerHTML = `${seatName} <span>Вільне К</span>`; 
+                    } 
+                }
                 managersRow.appendChild(seatEl);
             });
 
             EMPLOYEE_SEATS.forEach(seat => {
-                const seatEl = document.createElement('div'); seatEl.className = 'seat'; let occupiedBy = Object.keys(dayBookings).find(k => dayBookings[k].seat === seat.name && dayBookings[k].format === 'office');
-                if (occupiedBy) { seatEl.classList.add('taken'); if (currentUser === occupiedBy) { seatEl.classList.add('my-booking'); seatEl.innerHTML = `${seat.name} <span>Ваше місце</span>`; } else { seatEl.innerHTML = `${seat.name} <span>Зайнято: ${occupiedBy}</span>`; } } 
-                else { if (currentUserRole === 'employee') { seatEl.innerHTML = `${seat.name}`; seatEl.onclick = () => saveBooking('office', seat.name); } else { seatEl.innerHTML = `${seat.name}`; seatEl.onclick = () => saveBooking('office', seat.name); } }
+                const seatEl = document.createElement('div'); seatEl.className = 'seat'; 
+                let occupiedByUser = Object.keys(dayBookings).find(k => dayBookings[k].seat === seat.name && dayBookings[k].format === 'office');
+                
+                if (occupiedByUser) { 
+                    seatEl.classList.add('taken'); 
+                    if (currentUser === occupiedByUser) { 
+                        seatEl.classList.add('my-booking'); seatEl.innerHTML = `${seat.name} <span>Ваше місце</span>`; 
+                    } else { 
+                        seatEl.innerHTML = `${seat.name} <span>Зайнято: ${occupiedByUser}</span>`; 
+                    } 
+                } else { 
+                    if (currentUserRole === 'employee') { 
+                        seatEl.innerHTML = `${seat.name}`; seatEl.onclick = () => saveBooking('office', seat.name); 
+                    } else { 
+                        seatEl.innerHTML = `${seat.name}`; seatEl.onclick = () => saveBooking('office', seat.name); 
+                    } 
+                }
                 employeesRow.appendChild(seatEl);
             });
-        }
-
-        async function saveBooking(format, seatName) {
-            let freshDb = await fetchFreshDb();
-            if (!freshDb.bookings[selectedDateStr]) freshDb.bookings[selectedDateStr] = {};
-            
-            if (freshDb.bookings[selectedDateStr]["_waiting_list_"]) {
-                freshDb.bookings[selectedDateStr]["_waiting_list_"] = freshDb.bookings[selectedDateStr]["_waiting_list_"].filter(u => u !== currentUser);
-            }
-
-            if (freshDb.bookings[selectedDateStr]["_system_alert_moved_"]?.user === currentUser) delete freshDb.bookings[selectedDateStr]["_system_alert_moved_"];
-            if (freshDb.bookings[selectedDateStr]["_system_alert_evicted_"]?.user === currentUser) delete freshDb.bookings[selectedDateStr]["_system_alert_evicted_"];
-            
-            freshDb.bookings[selectedDateStr][currentUser] = { format: format, seat: seatName }; 
-            syncPut(freshDb);
-        }
-
-        // ЗАХИЩЕНЕ СКАСУВАННЯ: Ніколи не видаляє об'єкт дня!
-        async function cancelCurrentBooking() {
-            if (!selectedDateStr || !currentUser) return;
-            
-            // Завантажуємо НАЙСВІЖІШІ дані з сервера
-            let freshDb = await fetchFreshDb();
-            
-            if (freshDb.bookings[selectedDateStr]) {
-                // Видаляємо ЛИШЕ запис поточного користувача
-                if (freshDb.bookings[selectedDateStr][currentUser]) {
-                    delete freshDb.bookings[selectedDateStr][currentUser];
-                }
-                
-                // Видаляємо з черги очікування
-                if (freshDb.bookings[selectedDateStr]["_waiting_list_"]) {
-                    freshDb.bookings[selectedDateStr]["_waiting_list_"] = freshDb.bookings[selectedDateStr]["_waiting_list_"].filter(u => u !== currentUser);
-                }
-
-                if (freshDb.bookings[selectedDateStr]["_system_alert_moved_"]?.user === currentUser) delete freshDb.bookings[selectedDateStr]["_system_alert_moved_"];
-                if (freshDb.bookings[selectedDateStr]["_system_alert_evicted_"]?.user === currentUser) delete freshDb.bookings[selectedDateStr]["_system_alert_evicted_"];
-                
-                // Автоматично просуваємо чергу
-                processWaitingList(freshDb, selectedDateStr);
-
-                // Оновлюємо інтерфейс
-                db = freshDb; 
-                document.getElementById('workFormatSelect').value = 'none'; 
-                document.getElementById('officeMapSection').classList.add('hidden'); 
-                document.getElementById('mapAlertBox').classList.add('hidden');
-                document.getElementById('joinQueueBlock').classList.add('hidden');
-                renderDaysGrid(); 
-                
-                // Зберігаємо свіжий об'єкт без ризику затерти день
-                syncPut(freshDb);
-            }
         }
 
         function toggleAdminPanel() {
@@ -785,36 +672,32 @@
             const liveBody = document.getElementById('adminLiveBookings'); const archiveBody = document.getElementById('adminArchiveBookings'); liveBody.innerHTML = ''; archiveBody.innerHTML = '';
             const filterDate = document.getElementById('adminDateFilter').value; const allDates = Object.keys(db.bookings).sort((a,b) => new Date(b) - new Date(a));
             allDates.forEach(dateStr => {
-                const users = db.bookings[dateStr] || {};
-                Object.keys(users).forEach(user => {
-                    if (user.startsWith('_')) return; const info = users[user]; const archRow = document.createElement('tr');
+                const usersObj = db.bookings[dateStr] || {};
+                Object.keys(usersObj).forEach(userName => {
+                    const info = usersObj[userName]; 
+                    const archRow = document.createElement('tr');
                     
-                    let formatText = info.format === 'office' ? info.seat : (info.format === 'waiting' ? '⏳ В черзі' : (info.format === 'unfulfilled' ? '❌ Не вистачило місця' : 'Віддалено'));
+                    let formatText = info.format === 'office' ? info.seat : (info.format === 'waiting' ? '⏳ В черзі' : (info.format === 'unfulfilled' ? '❌ Не вистачило місця' : (info.format === 'cancelled' ? '⚪ Скасовано' : 'Віддалено')));
                     let badgeClass = info.format === 'office' ? 'badge-office': (info.format === 'waiting' ? 'badge-waiting' : (info.format === 'unfulfilled' ? 'badge-unfulfilled' : 'badge-remote'));
                     
-                    archRow.innerHTML = `<td>${dateStr}</td><td>${user}</td><td><span class="status-badge ${badgeClass}">${formatText}</span></td>`;
+                    archRow.innerHTML = `<td>${dateStr}</td><td>${userName}</td><td><span class="status-badge ${badgeClass}">${formatText}</span></td>`;
                     archiveBody.appendChild(archRow);
                     
                     if (!filterDate || filterDate === dateStr) {
                         const liveRow = document.createElement('tr');
-                        liveRow.innerHTML = `<td>${dateStr}</td><td><strong>${user}</strong></td><td>${info.format === 'office' ? '🏢 В офісі' : (info.format === 'waiting' ? '⏳ В черзі' : (info.format === 'unfulfilled' ? '❌ Не вистачило місця' : '🏠 Віддалено'))}</td><td>${info.seat || '-'}</td><td><button class="btn btn-danger" style="padding:3px 8px; font-size:12px;" onclick="adminResetSingle('${dateStr}', '${user}')">Скинути</button></td>`;
+                        liveRow.innerHTML = `<td>${dateStr}</td><td><strong>${userName}</strong></td><td>${info.format === 'office' ? '🏢 В офісі' : (info.format === 'waiting' ? '⏳ В черзі' : (info.format === 'unfulfilled' ? '❌ Не вистачило місця' : (info.format === 'cancelled' ? '⚪ Скасовано' : '🏠 Віддалено')))}</td><td>${info.seat || '-'}</td><td><button class="btn btn-danger" style="padding:3px 8px; font-size:12px;" onclick="adminResetSingle('${dateStr}', '${userName}')">Скинути</button></td>`;
                         liveBody.appendChild(liveRow);
                     }
                 });
             });
         }
 
-        async function adminResetSingle(dateStr, user) {
-            if (confirm(`Скасувати бронювання/чергу для ${user} на дату ${dateStr}?`)) {
-                let freshDb = await fetchFreshDb(); 
-                if (freshDb.bookings[dateStr]) { 
-                    delete freshDb.bookings[dateStr][user]; 
-                    if (freshDb.bookings[dateStr]["_waiting_list_"]) {
-                        freshDb.bookings[dateStr]["_waiting_list_"] = freshDb.bookings[dateStr]["_waiting_list_"].filter(u => u !== user);
-                    }
-                    processWaitingList(freshDb, dateStr);
-                    syncPut(freshDb); 
-                }
+        async function adminResetSingle(dateStr, userName) {
+            if (confirm(`Вилучити запис для ${userName} на дату ${dateStr}?`)) {
+                showSyncStatus("Вилучення...");
+                let { error } = await _supabase.from('bookings').delete().match({ booking_date: dateStr, user_name: userName });
+                if (error) alert("Помилка вилучення!");
+                else await syncGet();
             }
         }
 
