@@ -164,8 +164,7 @@
                     <li><strong>📅 Планування на 2 тижні вперед:</strong> Ви можете заздалегідь обирати формат <strong>«Віддалено 🏠»</strong> на будь-які дні.</li>
                     <li><strong>🏢 Як забронювати місце в офісі:</strong> Оберіть потрібний день (вибір відкривається <strong>о 13:00 попереднього дня</strong> і закривається <strong>о 10:00 в день візиту</strong>), змініть формат на <strong>«В офісі 🏢»</strong> та <strong>клікніть по вільному зеленому столу</strong>.</li>
                     <li><strong>⏳ Черга очікування:</strong> Якщо всі місця зайняті, натисніть кнопку <strong>«Стати в чергу за місцем»</strong>. Як тільки хтось скасує бронь, система <strong>автоматично перекине першого з черги</strong> на вільний стіл!</li>
-                    <li><strong>👀 Перегляд колег на сторінці:</strong> Оберіть будь-який день у календарі, щоб побачити схему столів, список тих, хто працює віддалено, та чергу очікування.</li>
-                    <li><strong>🔄 Зміна або скасування:</strong> Натисніть кнопку <strong>«Скасувати вибір на цей день»</strong>, щоб звільнити стіл для колег або вийти з черги.</li>
+                    <li><strong>🔔 Сповіщення:</strong> Дозвольте браузеру надсилати сповіщення, щоб отримати push-повідомлення, коли черга автоматично пересадить вас на вільне місце!</li>
                 </ul>
             </div>
         </div>
@@ -302,7 +301,7 @@
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         const ADMIN_PASSWORD = '2026';
-        const REFRESH_INTERVAL = 15000; // Оновлюємо дані кожні 15 сек
+        const REFRESH_INTERVAL = 10000; // 10 секунд
 
         const MANAGERS = ['Леопард', 'Пантера', 'Тигр'];
         const EMPLOYEES = ['Олекса Квасневська', 'Ліана Хомич', 'Вікторія Крохмаль', 'Анастасія Даценко', 'Юлія Андрієвська', 'Юлія Войтенко', 'Лілія Новосад'];
@@ -331,7 +330,18 @@
             initSync();
             setInterval(syncGet, REFRESH_INTERVAL);
             document.getElementById('adminDateFilter').value = getKyivDate().toISOString().split('T')[0];
+            
+            // Запит на браузерні сповіщення
+            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
         });
+
+        function sendNotification(title, body) {
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification(title, { body: body, icon: "💻" });
+            }
+        }
 
         function getKyivDate() {
             let localTime = new Date();
@@ -370,13 +380,14 @@
 
         async function initSync() { showSyncStatus("Завантаження даних..."); await syncGet(); }
 
-        // Читання всіх записів із Supabase
+        // Читання всіх записів із Supabase та перевірка сповіщень
         async function syncGet() {
             try {
                 let { data, error } = await _supabase.from('bookings').select('*');
                 if (error) throw error;
 
-                // Трансформуємо таблицю Supabase у формат додатка
+                let oldBookings = JSON.parse(JSON.stringify(db.bookings));
+
                 let formattedBookings = {};
                 data.forEach(row => {
                     let d = row.booking_date;
@@ -390,12 +401,21 @@
 
                 db.bookings = formattedBookings;
                 showSyncStatus("🟢 Supabase: Синхронізовано");
-                
-                // М'ЯКЕ ОНОВЛЕННЯ: оновлюємо календар у фоні, не закриваючи обраний день
+
+                // ПЕРЕВІРКА: Чи поточного користувача пересадили з черги на стіл?
                 if (currentUser) {
+                    Object.keys(formattedBookings).forEach(d => {
+                        let oldStatus = oldBookings[d] && oldBookings[d][currentUser] ? oldBookings[d][currentUser] : null;
+                        let newStatus = formattedBookings[d][currentUser];
+
+                        if (oldStatus && oldStatus.format === 'waiting' && newStatus && newStatus.format === 'office') {
+                            sendNotification("🎉 Вам виділено стіл в офісі!", `На дату ${d} для вас заброньовано: ${newStatus.seat}`);
+                            alert(`🎉 Увага! Звільнилося місце в офісі на ${d}.\nСистема автоматично забронювала для вас: ${newStatus.seat}!`);
+                        }
+                    });
+
                     renderDaysGrid();
                     if (selectedDateStr) {
-                        // Оновлюємо карту столів без скидання форми
                         let currentFormat = document.getElementById('workFormatSelect').value;
                         if (currentFormat === 'office') renderOfficeMap();
                     }
@@ -523,6 +543,8 @@
                 renderOfficeMap();
             } else if (format === 'remote') {
                 await saveToSupabase(selectedDateStr, currentUser, 'remote', null);
+                // Перевіряємо чи звільнилося місце в офісі для черги
+                await checkAndProcessQueue(selectedDateStr);
             }
         }
 
@@ -552,17 +574,66 @@
             await saveToSupabase(selectedDateStr, currentUser, 'waiting', null);
         }
 
-        // АТОМАРНЕ СКАСУВАННЯ В SUPABASE
+        // ЛОГІКА АВТОМАТИЧНОГО ПЕРЕСАДЖУВАННЯ З ЧЕРГИ
+        async function checkAndProcessQueue(dateStr) {
+            const dayBookings = db.bookings[dateStr] || {};
+            
+            // Шукаємо першу людину в черзі
+            let waitingUsers = Object.keys(dayBookings)
+                .filter(u => dayBookings[u].format === 'waiting')
+                .sort((a, b) => new Date(dayBookings[a].created_at || 0) - new Date(dayBookings[b].created_at || 0));
+
+            if (waitingUsers.length === 0) return; // Черга порожня
+
+            // Шукаємо перше вільне місце (серед столів співробітників або керівників)
+            let busySeats = Object.values(dayBookings).filter(b => b.format === 'office' && b.seat).map(b => b.seat);
+            
+            let freeSeat = null;
+            for (let seatObj of EMPLOYEE_SEATS) {
+                if (!busySeats.includes(seatObj.name)) {
+                    freeSeat = seatObj.name;
+                    break;
+                }
+            }
+
+            if (!freeSeat) {
+                for (let mgr of MANAGERS) {
+                    let mgrSeat = MANAGER_SEATS[mgr];
+                    if (!busySeats.includes(mgrSeat) && dayBookings[mgr] && dayBookings[mgr].format === 'remote') {
+                        freeSeat = mgrSeat;
+                        break;
+                    }
+                }
+            }
+
+            // Якщо є і людина в черзі, і вільний стіл — автоматично віддаємо стіл першому в черзі!
+            if (freeSeat && waitingUsers.length > 0) {
+                let luckyUser = waitingUsers[0];
+                showSyncStatus(`Авто-пересаджування ${luckyUser}...`);
+                await _supabase.from('bookings').upsert({
+                    booking_date: dateStr,
+                    user_name: luckyUser,
+                    format: 'office',
+                    seat: freeSeat
+                }, { onConflict: 'booking_date, user_name' });
+                
+                await syncGet();
+            }
+        }
+
+        // АТОМАРНЕ СКАСУВАННЯ В SUPABASE З АВТО-ПЕРЕСАДЖУВАННЯМ
         async function cancelCurrentBooking() {
             if (!selectedDateStr || !currentUser) return;
             showSyncStatus("Скасування...");
             
-            // Змінюємо статус на cancelled замість вилучення, щоб зберегти історію
             await saveToSupabase(selectedDateStr, currentUser, 'cancelled', null);
 
             document.getElementById('workFormatSelect').value = 'none'; 
             document.getElementById('officeMapSection').classList.add('hidden'); 
             document.getElementById('joinQueueBlock').classList.add('hidden');
+            
+            // Перевіряємо та автоматично пересаджуємо наступного з черги
+            await checkAndProcessQueue(selectedDateStr);
             renderDaysGrid();
         }
 
@@ -703,7 +774,10 @@
                 showSyncStatus("Вилучення...");
                 let { error } = await _supabase.from('bookings').delete().match({ booking_date: dateStr, user_name: userName });
                 if (error) alert("Помилка вилучення!");
-                else await syncGet();
+                else {
+                    await syncGet();
+                    await checkAndProcessQueue(dateStr);
+                }
             }
         }
 
