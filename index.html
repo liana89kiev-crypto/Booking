@@ -294,7 +294,7 @@
     </div>
 
     <script>
-        // ІНІЦІАЛІЗАЦІЯ SUPABASE З ВАШИМИ КЛЮЧАМИ:
+        // ІНІЦІАЛІЗАЦІЯ SUPABASE:
         const SUPABASE_URL = 'https://cjslruznsfdtdyzsgglh.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqc2xydXpuc2ZkdGR5enNnZ2xoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyODI3NTAsImV4cCI6MjEwMDg1ODc1MH0.09WPbGAaNHpPakkCOOlkzjbnNqnc0vZ4toW42P3uWOM';
 
@@ -331,7 +331,6 @@
             setInterval(syncGet, REFRESH_INTERVAL);
             document.getElementById('adminDateFilter').value = getKyivDate().toISOString().split('T')[0];
             
-            // Запит на браузерні сповіщення
             if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
                 Notification.requestPermission();
             }
@@ -380,7 +379,7 @@
 
         async function initSync() { showSyncStatus("Завантаження даних..."); await syncGet(); }
 
-        // Читання всіх записів із Supabase, авто-пересаджування та перевірка сповіщень
+        // Читання всіх записів із Supabase
         async function syncGet() {
             try {
                 let { data, error } = await _supabase.from('bookings').select('*');
@@ -402,13 +401,17 @@
                 db.bookings = formattedBookings;
                 showSyncStatus("🟢 Supabase: Синхронізовано");
 
-                // ПЕРЕВІРКА АВТО-ПЕРЕСАДЖУВАННЯ:
-                // Якщо є обрана дата — перевіряємо, чи немає вільного місця та людей у черзі
+                // ПЕРЕВІРКА АВТО-ПЕРЕСАДЖУВАННЯ
                 if (selectedDateStr) {
                     await checkAndProcessQueue(selectedDateStr);
+                } else {
+                    // Перевіряємо всі дати в черзі
+                    for (let d of Object.keys(db.bookings)) {
+                        await checkAndProcessQueue(d);
+                    }
                 }
 
-                // ПЕРЕВІРКА: Чи поточного користувача пересадили з черги на стіл?
+                // Перевірка сповіщень
                 if (currentUser) {
                     Object.keys(formattedBookings).forEach(d => {
                         let oldStatus = oldBookings[d] && oldBookings[d][currentUser] ? oldBookings[d][currentUser] : null;
@@ -422,8 +425,7 @@
 
                     renderDaysGrid();
                     if (selectedDateStr) {
-                        let currentFormat = document.getElementById('workFormatSelect').value;
-                        if (currentFormat === 'office') renderOfficeMap();
+                        refreshDayView();
                     }
                 }
                 if (isAdmin) renderAdminData();
@@ -484,7 +486,14 @@
             });
         }
 
-        function selectDay(dateStr, dayName, displayDate) { selectedDateStr = dateStr; document.getElementById('dayActionSection').classList.remove('hidden'); document.getElementById('selectedDayTitle').innerText = `${dayName} (${displayDate})`; renderDaysGrid(); refreshDayView(); }
+        async function selectDay(dateStr, dayName, displayDate) { 
+            selectedDateStr = dateStr; 
+            document.getElementById('dayActionSection').classList.remove('hidden'); 
+            document.getElementById('selectedDayTitle').innerText = `${dayName} (${displayDate})`; 
+            renderDaysGrid(); 
+            await checkAndProcessQueue(selectedDateStr);
+            refreshDayView(); 
+        }
 
         function refreshDayView() {
             const dayBookings = db.bookings[selectedDateStr] || {}; const userBooking = dayBookings[currentUser]; 
@@ -549,12 +558,10 @@
                 renderOfficeMap();
             } else if (format === 'remote') {
                 await saveToSupabase(selectedDateStr, currentUser, 'remote', null);
-                // Перевіряємо чи звільнилося місце в офісі для черги
                 await checkAndProcessQueue(selectedDateStr);
             }
         }
 
-        // АТОМАРНИЙ ЗАПИС У SUPABASE (UPSERT)
         async function saveToSupabase(dateStr, user, formatStr, seatName) {
             showSyncStatus("Збереження...");
             let { error } = await _supabase.from('bookings').upsert({
@@ -580,52 +587,72 @@
             await saveToSupabase(selectedDateStr, currentUser, 'waiting', null);
         }
 
-        // ЛОГІКА АВТОМАТИЧНОГО ПЕРЕСАДЖУВАННЯ З ЧЕРГИ
+        // НАДІЙНА ЛОГІКА АВТОМАТИЧНОГО ПЕРЕСАДЖУВАННЯ З ЧЕРГИ
         async function checkAndProcessQueue(dateStr) {
             const dayBookings = db.bookings[dateStr] || {};
             
-            // Шукаємо людей у черзі
-            let waitingUsers = Object.keys(dayBookings)
-                .filter(u => dayBookings[u].format === 'waiting')
-                .sort((a, b) => new Date(dayBookings[a].created_at || 0) - new Date(dayBookings[b].created_at || 0));
+            // 1. Отримуємо список людей у черзі
+            let waitingUsers = Object.keys(dayBookings).filter(u => dayBookings[u].format === 'waiting');
+            if (waitingUsers.length === 0) return;
 
-            if (waitingUsers.length === 0) return; // Черга порожня
+            // Сортування за датою, а якщо дати немає — зберігаємо поточний порядок
+            waitingUsers.sort((a, b) => {
+                let tA = dayBookings[a].created_at ? new Date(dayBookings[a].created_at).getTime() : 0;
+                let tB = dayBookings[b].created_at ? new Date(dayBookings[b].created_at).getTime() : 0;
+                return tA - tB;
+            });
 
-            // Шукаємо перше вільне місце (серед столів співробітників або керівників)
-            let busySeats = Object.values(dayBookings).filter(b => b.format === 'office' && b.seat).map(b => b.seat);
-            
+            // 2. Визначаємо, які місця зайняті прямо зараз
+            let takenSeats = [];
+            Object.keys(dayBookings).forEach(u => {
+                let b = dayBookings[u];
+                if (b.format === 'office' && b.seat) {
+                    takenSeats.push(b.seat);
+                }
+            });
+
+            // 3. Шукаємо перше вільне місце (спочатку серед місць співробітників)
             let freeSeat = null;
             for (let seatObj of EMPLOYEE_SEATS) {
-                if (!busySeats.includes(seatObj.name)) {
+                if (!takenSeats.includes(seatObj.name)) {
                     freeSeat = seatObj.name;
                     break;
                 }
             }
 
+            // Якщо серед місць співробітників вільного немає, перевіряємо керівників у віддаленому форматі
             if (!freeSeat) {
                 for (let mgr of MANAGERS) {
                     let mgrSeat = MANAGER_SEATS[mgr];
-                    if (!busySeats.includes(mgrSeat) && dayBookings[mgr] && dayBookings[mgr].format === 'remote') {
+                    if (!takenSeats.includes(mgrSeat) && dayBookings[mgr] && dayBookings[mgr].format === 'remote') {
                         freeSeat = mgrSeat;
                         break;
                     }
                 }
             }
 
-            // Якщо є і людина в черзі, і вільний стіл — автоматично віддаємо стіл першому в черзі!
+            // 4. Якщо вільне місце знайшлося — віддаємо першій людині з черги!
             if (freeSeat && waitingUsers.length > 0) {
                 let luckyUser = waitingUsers[0];
-                showSyncStatus(`Авто-пересаджування ${luckyUser}...`);
-                await _supabase.from('bookings').upsert({
+                showSyncStatus(`Пересаджуємо ${luckyUser} на ${freeSeat}...`);
+
+                let { error } = await _supabase.from('bookings').upsert({
                     booking_date: dateStr,
                     user_name: luckyUser,
                     format: 'office',
                     seat: freeSeat
                 }, { onConflict: 'booking_date, user_name' });
+
+                if (!error) {
+                    // Оновлюємо внутрішню базу і сторінку
+                    if (!db.bookings[dateStr]) db.bookings[dateStr] = {};
+                    db.bookings[dateStr][luckyUser] = { format: 'office', seat: freeSeat };
+                    renderDaysGrid();
+                    if (selectedDateStr === dateStr) refreshDayView();
+                }
             }
         }
 
-        // АТОМАРНЕ СКАСУВАННЯ В SUPABASE З АВТО-ПЕРЕСАДЖУВАННЯМ
         async function cancelCurrentBooking() {
             if (!selectedDateStr || !currentUser) return;
             showSyncStatus("Скасування...");
@@ -636,7 +663,6 @@
             document.getElementById('officeMapSection').classList.add('hidden'); 
             document.getElementById('joinQueueBlock').classList.add('hidden');
             
-            // Перевіряємо та автоматично пересаджуємо наступного з черги
             await checkAndProcessQueue(selectedDateStr);
             renderDaysGrid();
         }
