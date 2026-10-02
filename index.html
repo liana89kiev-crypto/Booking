@@ -380,7 +380,7 @@
 
         async function initSync() { showSyncStatus("Завантаження даних..."); await syncGet(); }
 
-        // Читання всіх записів із Supabase та перевірка сповіщень
+        // Читання всіх записів із Supabase, авто-пересаджування та перевірка сповіщень
         async function syncGet() {
             try {
                 let { data, error } = await _supabase.from('bookings').select('*');
@@ -401,6 +401,12 @@
 
                 db.bookings = formattedBookings;
                 showSyncStatus("🟢 Supabase: Синхронізовано");
+
+                // ПЕРЕВІРКА АВТО-ПЕРЕСАДЖУВАННЯ:
+                // Якщо є обрана дата — перевіряємо, чи немає вільного місця та людей у черзі
+                if (selectedDateStr) {
+                    await checkAndProcessQueue(selectedDateStr);
+                }
 
                 // ПЕРЕВІРКА: Чи поточного користувача пересадили з черги на стіл?
                 if (currentUser) {
@@ -578,7 +584,7 @@
         async function checkAndProcessQueue(dateStr) {
             const dayBookings = db.bookings[dateStr] || {};
             
-            // Шукаємо першу людину в черзі
+            // Шукаємо людей у черзі
             let waitingUsers = Object.keys(dayBookings)
                 .filter(u => dayBookings[u].format === 'waiting')
                 .sort((a, b) => new Date(dayBookings[a].created_at || 0) - new Date(dayBookings[b].created_at || 0));
@@ -616,8 +622,6 @@
                     format: 'office',
                     seat: freeSeat
                 }, { onConflict: 'booking_date, user_name' });
-                
-                await syncGet();
             }
         }
 
