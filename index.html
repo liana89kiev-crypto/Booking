@@ -160,4 +160,469 @@
             <div class="info-panel">
                 <h3>💻 Як користуватися системою бронювання:</h3>
                 <ul>
-                    <li><strong>👤 Важливо про авторизацію:</strong> Будь ласка, заходьте в систему <strong>лише
+                    <li><strong>👤 Важливо про авторизацію:</strong> Будь ласка, заходьте в систему <strong>лише під своїм прізвищем та ім'ям</strong>.</li>
+                    <li><strong>📅 Планування на 2 тижні вперед:</strong> Ви можете заздалегідь обирати формат <strong>«Віддалено 🏠»</strong> на будь-які дні.</li>
+                    <li><strong>🏢 Як забронювати місце в офісі:</strong> Оберіть потрібний день (вибір відкривається <strong>о 13:00 попереднього дня</strong> і закривається <strong>о 10:00 в день візиту</strong>), змініть формат на <strong>«В офісі 🏢»</strong> та <strong>клікніть по вільному зеленому столу</strong>.</li>
+                    <li><strong>⏳ Черга очікування:</strong> Якщо всі місця зайняті, натисніть кнопку <strong>«Стати в чергу за місцем»</strong>. Як тільки хтось скасує бронь, система <strong>автоматично перекине першого з черги</strong> на вільний стіл!</li>
+                    <li><strong>🔔 Сповіщення:</strong> Дозвольте браузеру надсилати сповіщення, щоб отримати push-повідомлення, коли черга автоматично пересадить вас на вільне місце!</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Головний екран бронювання -->
+        <div id="mainScreen" class="hidden">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                <div>Вітаємо, <strong id="currentUserName">...</strong> (<span id="currentUserRole"></span>)</div>
+                <button class="btn btn-danger" style="padding: 5px 10px; font-size:12px;" onclick="logout()">Вийти</button>
+            </div>
+
+            <!-- Вибір тижня -->
+            <div class="week-selector">
+                <button class="btn btn-outline" style="padding:5px 10px;" id="prevWeekBtn" onclick="changeWeek(-1)">Поточний тиждень</button>
+                <span id="weekLabel" style="font-weight:bold; font-size:14px;">...</span>
+                <button class="btn btn-outline" style="padding:5px 10px;" id="nextWeekBtn" onclick="changeWeek(1)">Наступний тиждень</button>
+            </div>
+
+            <!-- Дні тижня -->
+            <div class="days-grid" id="daysGrid"></div>
+
+            <div id="dayActionSection" class="hidden">
+                <h3 id="selectedDayTitle" style="margin-bottom:10px; color:var(--blue);">Обраний день</h3>
+                
+                <!-- Повідомлення про статус доступності офісу -->
+                <div id="timeLockAlert" class="alert-box alert-info hidden"></div>
+
+                <div id="bookingFormFields">
+                    <div class="form-group">
+                        <label>Формат роботи на цей день:</label>
+                        <select id="workFormatSelect" onchange="handleFormatChange()">
+                            <option value="none">-- Оберіть формат --</option>
+                            <option value="office">В офісі 🏢</option>
+                            <option value="remote">Віддалено 🏠</option>
+                        </select>
+                    </div>
+
+                    <div id="mapAlertBox" class="alert-box hidden"></div>
+
+                    <!-- Блок кнопки вставання у чергу -->
+                    <div id="joinQueueBlock" class="hidden" style="margin: 15px 0; text-align: center;">
+                        <p style="margin-bottom: 10px; font-weight: bold; color: #92400e;">⚠️ Усі місця в офісі на цей день зайняті.</p>
+                        <button class="btn btn-warning" id="joinQueueBtn" onclick="joinWaitingList()">⏳ Стати в чергу за вільним місцем</button>
+                    </div>
+
+                    <div id="officeMapSection" class="hidden office-map-container">
+                        <div class="map-wrapper" id="tablesMapWrapper">
+                            <div class="map-labels">
+                                <span>🪟 ВІКНО</span>
+                                <span>КОРИДОР 🚪</span>
+                            </div>
+
+                            <div class="section-title">Ряд Керівників</div>
+                            <div class="mobile-boundary">🪟 ВІКНО</div>
+                            <div class="row-scheme" id="managerSeatsRow" style="grid-template-columns: repeat(3, 1fr);"></div>
+                            <div class="mobile-boundary">🚪 КОРИДОР</div>
+
+                            <div class="section-title" style="margin-top:25px;">Ряд Співробітників</div>
+                            <div class="mobile-boundary">🪟 ВІКНО</div>
+                            <div class="row-scheme" id="employeeSeatsRow" style="grid-template-columns: repeat(4, 1fr);"></div>
+                            <div class="mobile-boundary">🚪 КОРИДОР</div>
+                        </div>
+
+                        <!-- Блок віддалених працівників -->
+                        <div class="remote-info-box" id="remoteListBlock">
+                            <strong>🏠 Віддалено працюють:</strong> <span id="remoteUsersList">немає</span>
+                        </div>
+
+                        <!-- Блок черги очікування -->
+                        <div class="queue-info-box" id="queueListBlock">
+                            <strong>⏳ Черга очікування:</strong> <span id="queueUsersList">немає</span>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top:15px; display:flex; gap:10px;">
+                        <button class="btn btn-danger hidden" id="cancelBookingBtn" onclick="cancelCurrentBooking()">Скасувати вибір на цей день</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Panel -->
+        <div id="adminScreen" class="hidden" style="margin-top:30px; border-top: 3px solid var(--blue); padding-top:20px;">
+            <h2>Адмін-панель</h2>
+            <div class="flex-tabs">
+                <div class="tab active" id="tab1" onclick="switchAdminTab(1)">Поточні броні (Тиждень)</div>
+                <div class="tab" id="tab2" onclick="switchAdminTab(2)">Архів (Всі дані)</div>
+            </div>
+
+            <div id="adminTabContent1">
+                <div class="form-group" style="max-width:200px;">
+                    <label for="adminDateFilter">Фільтр за датою:</label>
+                    <input type="date" id="adminDateFilter" onchange="renderAdminData()">
+                </div>
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Користувач</th>
+                                <th>Формат</th>
+                                <th>Місце</th>
+                                <th>Дія</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminLiveBookings"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="adminTabContent2" class="hidden">
+                <button class="btn" onclick="exportArchive()">Завантажити весь архів JSON</button>
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Користувач</th>
+                                <th>Тип роботи / Місце</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminArchiveBookings"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ІНІЦІАЛІЗАЦІЯ SUPABASE:
+        const SUPABASE_URL = 'https://cjslruznsfdtdyzsgglh.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqc2xydXpuc2ZkdGR5enNnZ2xoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyODI3NTAsImV4cCI6MjEwMDg1ODc1MH0.09WPbGAaNHpPakkCOOlkzjbnNqnc0vZ4toW42P3uWOM';
+
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const ADMIN_PASSWORD = '2026';
+        const REFRESH_INTERVAL = 60000; // Інтервал фонового оновлення — 60 секунд
+
+        const MANAGERS = ['Леопард', 'Пантера', 'Тигр'];
+        const EMPLOYEES = ['Олекса Квасневська', 'Ліана Хомич', 'Вікторія Крохмаль', 'Анастасія Даценко', 'Юлія Андрієвська', 'Юлія Войтенко', 'Лілія Новосад'];
+        
+        const MANAGER_SEATS = {
+            'Леопард': 'Стіл К1 (Вікно)',
+            'Пантера': 'Стіл К2 (Центр)',
+            'Тигр': 'Стіл К3 (Коридор)'
+        };
+
+        const EMPLOYEE_SEATS = [
+            { id: 'E1', name: 'Місце 1' },
+            { id: 'E2', name: 'Місце 2' },
+            { id: 'E3', name: 'Місце 3' },
+            { id: 'E4', name: 'Місце 4' }
+        ];
+
+        let db = { bookings: {} }; 
+        let currentUser = null; 
+        let currentUserRole = null; 
+        let currentWeekOffset = 0; 
+        let selectedDateStr = null; 
+        let isAdmin = false;
+        let isSaving = false;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initSync();
+            setInterval(syncGet, REFRESH_INTERVAL);
+            document.getElementById('adminDateFilter').value = getKyivDate().toISOString().split('T')[0];
+            
+            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
+        });
+
+        function sendNotification(title, body) {
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification(title, { body: body, icon: "💻" });
+            }
+        }
+
+        function getKyivDate() {
+            let localTime = new Date();
+            let tzDifference = localTime.getTimezoneOffset() * 60 * 1000;
+            let utcTime = new Date(localTime.getTime() + tzDifference);
+            let kyivOffsetHours = 3;
+            return new Date(utcTime.getTime() + (kyivOffsetHours * 60 * 60 * 1000));
+        }
+
+        function getWeekDates(offset = 0) {
+            let dates = []; let today = getKyivDate(); let dayOfWeek = today.getDay(); 
+            let distanceFromMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; 
+            let monday = new Date(today); monday.setDate(today.getDate() + distanceFromMonday + (offset * 7));
+            for (let i = 0; i < 5; i++) { let nextDay = new Date(monday); nextDay.setDate(monday.getDate() + i); dates.push(nextDay); }
+            return dates;
+        }
+
+        function formatDate(date) {
+            let d = date.getDate().toString().padStart(2, '0'); let m = (date.getMonth() + 1).toString().padStart(2, '0');
+            return `${date.getFullYear()}-${m}-${d}`;
+        }
+
+        function isOfficeAvailable(targetDateStr) {
+            let nowKyiv = getKyivDate();
+            let targetDate = new Date(targetDateStr + "T00:00:00");
+
+            let openTime = new Date(targetDate);
+            openTime.setDate(targetDate.getDate() - 1);
+            openTime.setHours(13, 0, 0, 0);
+
+            let closeTime = new Date(targetDate);
+            closeTime.setHours(10, 0, 0, 0);
+
+            return (nowKyiv >= openTime && nowKyiv <= closeTime);
+        }
+
+        async function initSync() { showSyncStatus("Завантаження даних..."); await syncGet(); }
+
+        // Читання всіх записів із Supabase під оригінальні назви колонок
+        async function syncGet() {
+            if (isSaving) return;
+            try {
+                let { data, error } = await _supabase.from('bookings').select('*');
+                if (error) throw error;
+
+                let oldBookings = JSON.parse(JSON.stringify(db.bookings));
+
+                let formattedBookings = {};
+                data.forEach(row => {
+                    let d = row.date || row.booking_date; // Підтримка обох варіантів назви колонки
+                    if (d) {
+                        if (!formattedBookings[d]) formattedBookings[d] = {};
+                        formattedBookings[d][row.user_name] = {
+                            format: row.format,
+                            seat: row.seat
+                        };
+                    }
+                });
+
+                db.bookings = formattedBookings;
+                showSyncStatus("🟢 Supabase: Синхронізовано");
+
+                // Перевірка авто-пересаджування з черги
+                if (selectedDateStr) {
+                    await checkAndProcessQueue(selectedDateStr);
+                } else {
+                    for (let d of Object.keys(db.bookings)) {
+                        await checkAndProcessQueue(d);
+                    }
+                }
+
+                if (currentUser) {
+                    Object.keys(formattedBookings).forEach(d => {
+                        let oldStatus = oldBookings[d] && oldBookings[d][currentUser] ? oldBookings[d][currentUser] : null;
+                        let newStatus = formattedBookings[d][currentUser];
+
+                        if (oldStatus && oldStatus.format === 'waiting' && newStatus && newStatus.format === 'office') {
+                            sendNotification("🎉 Вам виділено стіл в офісі!", `На дату ${d} для вас заброньовано: ${newStatus.seat}`);
+                            alert(`🎉 Увага! Звільнилося місце в офісі на ${d}.\nСистема автоматично забронювала для вас: ${newStatus.seat}!`);
+                        }
+                    });
+
+                    renderDaysGrid();
+                    if (selectedDateStr) {
+                        refreshDayView();
+                    }
+                }
+                if (isAdmin) renderAdminData();
+            } catch (err) {
+                console.error("Supabase error:", err);
+                showSyncStatus("Помилка зв'язку з Supabase!", true);
+            }
+        }
+
+        function login() {
+            const user = document.getElementById('userSelect').value; if (!user) return alert("Будь ласка, оберіть ім'я!");
+            currentUser = user; currentUserRole = MANAGERS.includes(user) ? 'manager' : 'employee';
+            document.getElementById('currentUserName').innerText = user; document.getElementById('currentUserRole').innerText = currentUserRole === 'manager' ? 'Керівник' : 'Співробітник';
+            document.getElementById('authScreen').classList.add('hidden'); document.getElementById('mainScreen').classList.remove('hidden');
+            currentWeekOffset = 0; renderDaysGrid();
+        }
+
+        function logout() { currentUser = null; currentUserRole = null; document.getElementById('authScreen').classList.remove('hidden'); document.getElementById('mainScreen').classList.add('hidden'); document.getElementById('dayActionSection').classList.add('hidden'); }
+
+        function changeWeek(direction) {
+            currentWeekOffset += direction; if (currentWeekOffset < 0) currentWeekOffset = 0; if (currentWeekOffset > 1) currentWeekOffset = 1;
+            renderDaysGrid(); document.getElementById('dayActionSection').classList.add('hidden'); selectedDateStr = null;
+        }
+
+        function renderDaysGrid() {
+            const dates = getWeekDates(currentWeekOffset); const grid = document.getElementById('daysGrid'); grid.innerHTML = '';
+            const startStr = dates[0].toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' }); const endStr = dates[4].toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+            document.getElementById('weekLabel').innerText = `${startStr} — ${endStr}`; document.getElementById('prevWeekBtn').disabled = (currentWeekOffset === 0);
+            const daysNames = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця'];
+
+            dates.forEach((date, index) => {
+                const dateStr = formatDate(date); const dayBookings = db.bookings[dateStr] || {};
+                let userStatusText = "Немає броні"; let badgeClass = "";
+                
+                if (dayBookings[currentUser]) {
+                    let userF = dayBookings[currentUser].format;
+                    if (userF === 'office') { 
+                        userStatusText = `В офісі: ${dayBookings[currentUser].seat}`; badgeClass = "badge-office"; 
+                    } else if (userF === 'waiting') {
+                        userStatusText = `В черзі ⏳`; badgeClass = "badge-waiting";
+                    } else if (userF === 'unfulfilled') {
+                        userStatusText = "Не вистачило місця ❌"; badgeClass = "badge-unfulfilled";
+                    } else if (userF === 'remote') { 
+                        userStatusText = "Віддалено"; badgeClass = "badge-remote"; 
+                    }
+                } else {
+                    if (currentUserRole === 'manager') { userStatusText = `В офісі: ${MANAGER_SEATS[currentUser]}`; badgeClass = "badge-office"; } 
+                    else { userStatusText = "Немає броні"; }
+                }
+
+                const card = document.createElement('div'); card.className = `day-card ${selectedDateStr === dateStr ? 'active' : ''}`;
+                card.onclick = () => selectDay(dateStr, daysNames[index], date.toLocaleDateString('uk-UA'));
+                card.innerHTML = `
+                    <div>${daysNames[index]}</div>
+                    <div class="date-sub">${date.toLocaleDateString('uk-UA')}</div>
+                    <div class="status-badge ${badgeClass}" title="${userStatusText}">${userStatusText}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        async function selectDay(dateStr, dayName, displayDate) { 
+            selectedDateStr = dateStr; 
+            document.getElementById('dayActionSection').classList.remove('hidden'); 
+            document.getElementById('selectedDayTitle').innerText = `${dayName} (${displayDate})`; 
+            renderDaysGrid(); 
+            await checkAndProcessQueue(selectedDateStr);
+            refreshDayView(); 
+        }
+
+        function refreshDayView() {
+            const dayBookings = db.bookings[selectedDateStr] || {}; const userBooking = dayBookings[currentUser]; 
+            const alertBox = document.getElementById('mapAlertBox'); alertBox.classList.add('hidden'); 
+            const timeAlert = document.getElementById('timeLockAlert');
+            const joinQueueBlock = document.getElementById('joinQueueBlock');
+
+            if (!isOfficeAvailable(selectedDateStr)) {
+                timeAlert.innerText = `ℹ️ На цей день зараз можна обрати тільки формат "Віддалено". Вибір офісу відкривається о 13:00 попереднього дня та закривається о 10:00 в день візиту.`;
+                timeAlert.className = "alert-box alert-info";
+                timeAlert.classList.remove('hidden');
+            } else {
+                timeAlert.innerText = `✅ Бронювання столів в офісі на цей день зараз відкрито (до 10:00 ранку).`;
+                timeAlert.className = "alert-box alert-warning";
+                timeAlert.classList.remove('hidden');
+            }
+
+            if (userBooking && userBooking.format !== 'cancelled') { 
+                document.getElementById('workFormatSelect').value = (userBooking.format === 'waiting' || userBooking.format === 'unfulfilled' ? 'office' : userBooking.format); 
+                document.getElementById('cancelBookingBtn').classList.remove('hidden'); 
+            } else { 
+                if (currentUserRole === 'manager' && isOfficeAvailable(selectedDateStr)) { 
+                    document.getElementById('workFormatSelect').value = 'office'; 
+                } else { 
+                    document.getElementById('workFormatSelect').value = 'none'; 
+                } 
+                document.getElementById('cancelBookingBtn').classList.add('hidden'); 
+            }
+
+            const format = document.getElementById('workFormatSelect').value; const mapSection = document.getElementById('officeMapSection');
+            
+            if (format === 'office') { 
+                mapSection.classList.remove('hidden'); 
+                renderOfficeMap(); 
+            } else { 
+                mapSection.classList.add('hidden'); 
+                joinQueueBlock.classList.add('hidden');
+            }
+        }
+
+        async function handleFormatChange() {
+            const format = document.getElementById('workFormatSelect').value; 
+            if (format === 'none') { 
+                document.getElementById('officeMapSection').classList.add('hidden'); 
+                document.getElementById('joinQueueBlock').classList.add('hidden');
+                return; 
+            }
+
+            if (format === 'office' && !isOfficeAvailable(selectedDateStr)) {
+                alert("Помилка! Вибір офісу на цей день закритий.");
+                document.getElementById('workFormatSelect').value = 'none';
+                return;
+            }
+
+            if (format === 'office') {
+                if (currentUserRole === 'manager') {
+                    const originalSeat = MANAGER_SEATS[currentUser];
+                    await saveToSupabase(selectedDateStr, currentUser, 'office', originalSeat);
+                    return;
+                }
+                document.getElementById('officeMapSection').classList.remove('hidden'); 
+                renderOfficeMap();
+            } else if (format === 'remote') {
+                await saveToSupabase(selectedDateStr, currentUser, 'remote', null);
+                await checkAndProcessQueue(selectedDateStr);
+            }
+        }
+
+        async function saveToSupabase(dateStr, user, formatStr, seatName) {
+            isSaving = true;
+            showSyncStatus("Збереження...");
+
+            // Перевіряємо та використовуємо сумісну структуру
+            let payload = {
+                date: dateStr,
+                booking_date: dateStr,
+                user_name: user,
+                format: formatStr,
+                seat: seatName
+            };
+
+            let { error } = await _supabase.from('bookings').upsert(payload, { onConflict: 'date, user_name' });
+
+            // Якщо помилка через назву ключа упругості, пробуємо резервний варіант
+            if (error) {
+                let fallback = await _supabase.from('bookings').upsert({
+                    booking_date: dateStr,
+                    user_name: user,
+                    format: formatStr,
+                    seat: seatName
+                }, { onConflict: 'booking_date, user_name' });
+                error = fallback.error;
+            }
+
+            isSaving = false;
+            if (error) {
+                console.error("Save error:", error);
+                alert("Помилка збереження в базу!");
+                showSyncStatus("Помилка збереження", true);
+            } else {
+                await syncGet();
+            }
+        }
+
+        async function saveBooking(format, seatName) {
+            await saveToSupabase(selectedDateStr, currentUser, format, seatName);
+        }
+
+        async function joinWaitingList() {
+            await saveToSupabase(selectedDateStr, currentUser, 'waiting', null);
+        }
+
+        async function checkAndProcessQueue(dateStr) {
+            const dayBookings = db.bookings[dateStr] || {};
+            
+            let waitingUsers = Object.keys(dayBookings).filter(u => dayBookings[u].format === 'waiting');
+            if (waitingUsers.length === 0) return;
+
+            let takenSeats = [];
+            Object.keys(dayBookings).forEach(u => {
+                let b = dayBookings[u];
+                if (b.format === 'office' && b.seat) {
+                    takenSeats.push(b.seat);
+                }
+            });
+
+            let freeSeat = null;
+            for (let seatObj of EMPLOYEE_SEATS) {
+                if (!takenSeats.includes(seatObj.name)) {
+                    freeSeat = seatObj.name;
